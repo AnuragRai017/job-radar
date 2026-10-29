@@ -43,9 +43,9 @@ class FitPayload(BaseModel):
     score: int = Field(ge=0, le=100)
     # The model is asked for strong/possible/weak, but sometimes returns a
     # longer phrase such as "plausible stretch"; the score decides the verdict.
-    verdict: str = Field(default="possible", max_length=64)
-    reasons: list[str] = Field(default_factory=list, max_length=8)
-    gaps: list[str] = Field(default_factory=list, max_length=8)
+    verdict: str = Field(default="possible", max_length=128)
+    reasons: list[str] = Field(default_factory=list, max_length=12)
+    gaps: list[str] = Field(default_factory=list, max_length=12)
 
 
 @dataclass(slots=True)
