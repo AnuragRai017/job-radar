@@ -115,7 +115,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           <h2 id="results-title">The feed</h2>
           <p class="result-count" id="result-count">Loading…</p>
         </div>
-        <p class="results-filter-note">Newest postings first</p>
+        <p class="results-filter-note" id="results-sort-note">Newest postings first</p>
       </div>
 
       <p class="visually-hidden" id="status" role="status" aria-live="polite"></p>
@@ -190,6 +190,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   const sortSelect = document.querySelector<HTMLSelectElement>("#sort")!;
   const resetButton = document.querySelector<HTMLButtonElement>("#reset")!;
   const resultCount = document.querySelector<HTMLElement>("#result-count")!;
+  const resultsSortNote = document.querySelector<HTMLElement>("#results-sort-note")!;
   const statusRegion = document.querySelector<HTMLElement>("#status")!;
   const statRoles = document.querySelector<HTMLElement>("#stat-roles")!;
   const statCompanies = document.querySelector<HTMLElement>("#stat-companies")!;
@@ -402,6 +403,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   function renderJobs(data: JobListResponse): void {
     state.page = data.page;
     state.pages = data.pages;
+    resultsSortNote.textContent =
+      state.sort === "fit" ? "Best fit first" : "Newest postings first";
 
     const noun = data.total === 1 ? "role" : "roles";
     resultCount.textContent = `${formatNumber(data.total)} ${noun}`;

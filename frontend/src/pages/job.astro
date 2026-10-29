@@ -101,7 +101,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     const gaps = (job.fit_gaps ?? [])
       .map((item) => `<li>${escapeHtml(item)}</li>`)
       .join("");
-    const method = job.fit_method === "llm" ? "Local AI analysis" : "Resume keyword match";
+    const method = job.fit_method === "llm" ? "AI analysis" : "Resume keyword match";
     const model = job.fit_model ? ` · ${escapeHtml(job.fit_model)}` : "";
 
     return `

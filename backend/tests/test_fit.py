@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.fit.resume import build_profile, read_resume_text
-from app.fit.scoring import FitScorer, heuristic_fit, run_fit_scoring
+from app.fit.scoring import FitPayload, FitScorer, heuristic_fit, run_fit_scoring
 from app.models import Job
 
 RESUME_TEXT = """\
@@ -101,6 +101,20 @@ def test_fit_scoring_persists_heuristic_scores(db, tmp_path) -> None:
     second = run_fit_scoring(use_llm=False, resume_path=str(resume))
     assert second.heuristic_saved == 0
     assert second.llm_scored == 0
+
+
+def test_fit_payload_accepts_model_verbosity() -> None:
+    payload = FitPayload.model_validate(
+        {
+            "score": 64,
+            "verdict": "plausible stretch",
+            "reasons": ["Matches Python and SQL."],
+            "gaps": ["Gap one", "Gap two", "Gap three", "Gap four", "Gap five"],
+        }
+    )
+    assert payload.score == 64
+    assert payload.verdict == "plausible stretch"
+    assert len(payload.gaps) == 5
 
 
 def test_fit_scorer_reports_circuit_state() -> None:

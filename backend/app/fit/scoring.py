@@ -41,9 +41,11 @@ class FitPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     score: int = Field(ge=0, le=100)
-    verdict: str = Field(default="possible", max_length=16)
-    reasons: list[str] = Field(default_factory=list, max_length=5)
-    gaps: list[str] = Field(default_factory=list, max_length=4)
+    # The model is asked for strong/possible/weak, but sometimes returns a
+    # longer phrase such as "plausible stretch"; the score decides the verdict.
+    verdict: str = Field(default="possible", max_length=64)
+    reasons: list[str] = Field(default_factory=list, max_length=8)
+    gaps: list[str] = Field(default_factory=list, max_length=8)
 
 
 @dataclass(slots=True)
