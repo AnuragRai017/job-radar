@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Index pages are static shells; job details require a query string.
+Disallow: /job/

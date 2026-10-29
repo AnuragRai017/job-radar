@@ -1,0 +1,4 @@
+# Optional anti-bot fallback. This is intentionally NOT part of the default
+# image: it requires a Chrome/Chromium installation and a much larger image.
+# Install with:  pip install -r requirements-browser.txt
+selenium-driverless>=2.1,<3.0

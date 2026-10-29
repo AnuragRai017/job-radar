@@ -1,0 +1,88 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = "RoleRadar — public jobs, one clear signal",
+  description = "Search public job postings from Deloitte, Capgemini, JPMorgan Chase, and Google. Refreshed every six hours and always linked back to the original posting.",
+} = Astro.props;
+
+const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#f4f1e8" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:site_name" content="RoleRadar" />
+    <meta name="twitter:card" content="summary" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <div class="shell header-inner">
+        <a class="brand" href="/" aria-label="RoleRadar home">
+          <svg class="brand-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+            <circle cx="16" cy="16" r="13.25" stroke="currentColor" stroke-width="1.5" />
+            <circle cx="16" cy="16" r="7.75" stroke="currentColor" stroke-width="1.5" opacity=".6" />
+            <path d="M16 16 25 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            <circle cx="16" cy="16" r="2.4" fill="currentColor" />
+            <circle cx="24.4" cy="7.6" r="2.6" fill="var(--signal)" stroke="var(--ink)" stroke-width="1.2" />
+          </svg>
+          <span class="brand-name">Role<span>Radar</span></span>
+        </a>
+
+        <nav class="site-nav" aria-label="Primary">
+          <a href="/" data-nav="jobs">All roles</a>
+          <a href="/api/docs" target="_blank" rel="noopener noreferrer">API docs</a>
+        </nav>
+
+        <p class="header-note">
+          <span class="pulse" aria-hidden="true"></span>
+          Swept every 6h
+        </p>
+      </div>
+    </header>
+
+    <main id="main">
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell footer-inner">
+        <p>
+          <strong>RoleRadar</strong> indexes public postings and always links to the
+          company’s own application page. Listings may close without notice.
+        </p>
+        <p class="footer-links">
+          <a href="/api/docs" target="_blank" rel="noopener noreferrer">API</a>
+          <span aria-hidden="true">/</span>
+          <a href="/health" target="_blank" rel="noopener noreferrer">Status</a>
+          <span aria-hidden="true">/</span>
+          <span>Four sources. One feed.</span>
+        </p>
+      </div>
+    </footer>
+
+    <script>
+      // Highlight the current section without shipping a framework.
+      const path = window.location.pathname;
+      const nav = document.querySelector<HTMLAnchorElement>('[data-nav="jobs"]');
+      if (nav && path === "/") nav.setAttribute("aria-current", "page");
+    </script>
+  </body>
+</html>

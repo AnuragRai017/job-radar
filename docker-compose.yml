@@ -1,0 +1,119 @@
+name: roleradar
+
+x-backend-common: &backend-common
+  build:
+    context: ./backend
+  environment:
+    APP_ENV: production
+    LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    # Compose always uses PostgreSQL. Local development can still use SQLite.
+    DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-roleradar}:${POSTGRES_PASSWORD:-roleradar_dev}@db:5432/${POSTGRES_DB:-roleradar}
+
+    CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5100,http://127.0.0.1:5100}
+
+    SCRAPE_SOURCES: ${SCRAPE_SOURCES:-amazon,concentrix,microsoft,hsbc,medallion,cadence,capgemini_india,exl,deloitte_india,ey,jpmorgan,deloitte,capgemini,google}
+    SCRAPE_INTERVAL_HOURS: ${SCRAPE_INTERVAL_HOURS:-6}
+    SCRAPE_ON_STARTUP: ${SCRAPE_ON_STARTUP:-true}
+    SCRAPE_MAX_JOBS_PER_SOURCE: ${SCRAPE_MAX_JOBS_PER_SOURCE:-0}
+    SCRAPE_MAX_PAGES_PER_SOURCE: ${SCRAPE_MAX_PAGES_PER_SOURCE:-0}
+
+    HTTP_TIMEOUT_SECONDS: ${HTTP_TIMEOUT_SECONDS:-60}
+    HTTP_MAX_RETRIES: ${HTTP_MAX_RETRIES:-4}
+    HTTP_RATE_LIMIT_SECONDS: ${HTTP_RATE_LIMIT_SECONDS:-1.5}
+    HTTP_BACKOFF_BASE_SECONDS: ${HTTP_BACKOFF_BASE_SECONDS:-2.0}
+    HTTP_BACKOFF_MAX_SECONDS: ${HTTP_BACKOFF_MAX_SECONDS:-30.0}
+
+    RESPECT_ROBOTS: ${RESPECT_ROBOTS:-true}
+    ROBOTS_CACHE_SECONDS: ${ROBOTS_CACHE_SECONDS:-86400}
+    GOOGLE_PAGINATION_OVERRIDE: ${GOOGLE_PAGINATION_OVERRIDE:-false}
+    ENABLE_DRIVERLESS_FALLBACK: ${ENABLE_DRIVERLESS_FALLBACK:-false}
+    DRIVERLESS_HEADLESS: ${DRIVERLESS_HEADLESS:-true}
+
+    AI_FALLBACK_ENABLED: ${AI_FALLBACK_ENABLED:-false}
+    OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    OLLAMA_MODEL: ${OLLAMA_MODEL:-gpt-oss:120b-cloud}
+    OLLAMA_TIMEOUT_SECONDS: ${OLLAMA_TIMEOUT_SECONDS:-120}
+    OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-32768}
+    AI_FALLBACK_MAX_CALLS: ${AI_FALLBACK_MAX_CALLS:-10}
+    AI_FALLBACK_MAX_INPUT_CHARS: ${AI_FALLBACK_MAX_INPUT_CHARS:-60000}
+  init: true
+  restart: unless-stopped
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  networks:
+    - roleradar
+  depends_on:
+    db:
+      condition: service_healthy
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-roleradar}
+      POSTGRES_USER: ${POSTGRES_USER:-roleradar}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-roleradar_dev}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - roleradar
+
+  api:
+    <<: *backend-common
+    ports:
+      - "127.0.0.1:${API_HOST_PORT:-5200}:5200"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5200/health', timeout=5)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    stop_grace_period: 20s
+
+  scheduler:
+    <<: *backend-common
+    command: ["python", "-m", "app.scheduler"]
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    stop_grace_period: 45s
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "127.0.0.1:${FRONTEND_HOST_PORT:-5100}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - roleradar
+
+networks:
+  roleradar:
+    driver: bridge
+
+volumes:
+  pgdata:

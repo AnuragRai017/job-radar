@@ -1,0 +1,12 @@
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.32,<1.0
+SQLAlchemy>=2.0.36,<3.0
+psycopg[binary]>=3.2,<4.0
+pydantic>=2.9,<3.0
+pydantic-settings>=2.6,<3.0
+APScheduler>=3.10,<4.0
+curl_cffi>=0.11,<0.18
+beautifulsoup4>=4.12,<5.0
+lxml>=5.3,<6.0
+bleach>=6.2,<7.0
+protego>=0.4,<1.0

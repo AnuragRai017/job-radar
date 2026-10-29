@@ -1,0 +1,525 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout>
+  <section class="hero">
+    <div class="shell">
+      <div class="hero-inner">
+        <p class="eyebrow">Live public job feeds</p>
+        <h1>Your next move,<br /><em>already on the radar.</em></h1>
+        <p class="hero-lede">
+          One quiet place to search <strong>14 public career sites, including Deloitte,
+          Capgemini, Amazon, Microsoft, HSBC, and EY</strong>. Public postings, swept every
+          six hours, stored without duplicate rows — and always linked back to the company’s
+          own application page.
+        </p>
+
+        <div class="stat-strip" aria-label="Feed statistics">
+          <div class="stat">
+            <span class="stat-value" id="stat-roles" aria-busy="true">—</span>
+            <span class="stat-label">Open roles</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value" id="stat-companies" aria-busy="true">—</span>
+            <span class="stat-label">Companies tracked</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value is-text" id="stat-updated">Checking…</span>
+            <span class="stat-label">Last sweep</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="shell workspace" aria-label="Search jobs">
+    <aside class="filters">
+      <div class="filter-card">
+        <div class="filter-heading">
+          <h2>Filter the signal</h2>
+          <span>14 feeds</span>
+        </div>
+        <p class="filter-intro">Narrow by role, team, or place. Changes search all public postings.</p>
+
+        <form id="filters" class="filter-form" role="search">
+          <div class="field field--keyword">
+            <label for="keyword">Keyword</label>
+            <input
+              id="keyword"
+              name="keyword"
+              type="search"
+              placeholder="Title, team, skill…"
+              autocomplete="off"
+              maxlength="200"
+            />
+          </div>
+
+          <div class="field">
+            <label for="company">Company</label>
+            <select id="company" name="company">
+              <option value="">All companies</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="location">Location</label>
+            <input
+              id="location"
+              name="location"
+              type="text"
+              placeholder="City or country"
+              autocomplete="off"
+              maxlength="200"
+            />
+          </div>
+
+          <button class="btn btn-primary" type="submit">
+            Search roles
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M2.5 8h11M9.5 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <button class="filter-reset" id="reset" type="button" hidden>Clear all filters</button>
+        </form>
+
+        <p class="filter-footnote">
+          Searches titles, descriptions, locations, and company names. Data comes from
+          public career sites; verify details on the original posting.
+        </p>
+      </div>
+    </aside>
+
+    <section class="results" aria-labelledby="results-title">
+      <div class="results-head">
+        <div class="results-title">
+          <h2 id="results-title">The feed</h2>
+          <p class="result-count" id="result-count">Loading…</p>
+        </div>
+        <p class="results-filter-note">Newest postings first</p>
+      </div>
+
+      <p class="visually-hidden" id="status" role="status" aria-live="polite"></p>
+
+      <div id="job-list" class="job-list" aria-busy="true">
+        <div class="skeleton-card" aria-hidden="true">
+          <div class="sk sk-mark"></div>
+          <div class="sk-lines">
+            <div class="sk sk-line w-30"></div>
+            <div class="sk sk-line w-65"></div>
+            <div class="sk sk-line w-45"></div>
+            <div class="sk sk-line w-90"></div>
+          </div>
+        </div>
+        <div class="skeleton-card" aria-hidden="true">
+          <div class="sk sk-mark"></div>
+          <div class="sk-lines">
+            <div class="sk sk-line w-30"></div>
+            <div class="sk sk-line w-65"></div>
+            <div class="sk sk-line w-45"></div>
+            <div class="sk sk-line w-90"></div>
+          </div>
+        </div>
+        <div class="skeleton-card" aria-hidden="true">
+          <div class="sk sk-mark"></div>
+          <div class="sk-lines">
+            <div class="sk sk-line w-30"></div>
+            <div class="sk sk-line w-65"></div>
+            <div class="sk sk-line w-45"></div>
+            <div class="sk sk-line w-90"></div>
+          </div>
+        </div>
+        <div class="skeleton-card" aria-hidden="true">
+          <div class="sk sk-mark"></div>
+          <div class="sk-lines">
+            <div class="sk sk-line w-30"></div>
+            <div class="sk sk-line w-65"></div>
+            <div class="sk sk-line w-45"></div>
+            <div class="sk sk-line w-90"></div>
+          </div>
+        </div>
+      </div>
+
+      <nav id="pagination" class="pagination" aria-label="Job results pages" hidden></nav>
+    </section>
+  </section>
+</BaseLayout>
+
+<script>
+  import {
+    companyMeta,
+    escapeHtml,
+    fetchJSON,
+    formatNumber,
+    formatPosted,
+    pageWindow,
+    timeAgo,
+    type CompanyStat,
+    type JobListResponse,
+    type JobSummary,
+    type StatsResponse,
+  } from "../scripts/api";
+
+  const list = document.querySelector<HTMLDivElement>("#job-list")!;
+  const pagination = document.querySelector<HTMLElement>("#pagination")!;
+  const resultsSection = document.querySelector<HTMLElement>(".results")!;
+  const form = document.querySelector<HTMLFormElement>("#filters")!;
+  const keywordInput = document.querySelector<HTMLInputElement>("#keyword")!;
+  const companySelect = document.querySelector<HTMLSelectElement>("#company")!;
+  const locationInput = document.querySelector<HTMLInputElement>("#location")!;
+  const resetButton = document.querySelector<HTMLButtonElement>("#reset")!;
+  const resultCount = document.querySelector<HTMLElement>("#result-count")!;
+  const statusRegion = document.querySelector<HTMLElement>("#status")!;
+  const statRoles = document.querySelector<HTMLElement>("#stat-roles")!;
+  const statCompanies = document.querySelector<HTMLElement>("#stat-companies")!;
+  const statUpdated = document.querySelector<HTMLElement>("#stat-updated")!;
+
+  const PAGE_SIZE = 20;
+  const FALLBACK_COMPANIES = [
+    "Amazon",
+    "Cadence",
+    "Capgemini",
+    "Capgemini India",
+    "Concentrix",
+    "Deloitte",
+    "Deloitte India",
+    "EXL",
+    "EY",
+    "Google",
+    "HSBC",
+    "JPMorgan Chase",
+    "Medallion",
+    "Microsoft",
+  ];
+
+  const initial = new URLSearchParams(window.location.search);
+  const state = {
+    keyword: initial.get("q")?.trim() ?? "",
+    company: initial.get("company")?.trim() ?? "",
+    location: initial.get("location")?.trim() ?? "",
+    page: Math.max(1, Number.parseInt(initial.get("page") ?? "1", 10) || 1),
+    pages: 0,
+  };
+
+  keywordInput.value = state.keyword;
+  locationInput.value = state.location;
+
+  let controller: AbortController | null = null;
+  let statsLoaded = false;
+
+  function hasFilters(): boolean {
+    return Boolean(state.keyword || state.company || state.location);
+  }
+
+  function syncResetVisibility(): void {
+    resetButton.hidden = !hasFilters();
+  }
+
+  function updateUrl(): void {
+    const url = new URL(window.location.href);
+    const params = url.searchParams;
+    const values: Array<[string, string]> = [
+      ["q", state.keyword],
+      ["company", state.company],
+      ["location", state.location],
+    ];
+
+    for (const [key, value] of values) {
+      if (value) params.set(key, value);
+      else params.delete(key);
+    }
+
+    if (state.page > 1) params.set("page", String(state.page));
+    else params.delete("page");
+
+    window.history.replaceState({}, "", url);
+  }
+
+  function skeletonMarkup(count = 5): string {
+    return Array.from({ length: count })
+      .map(
+        () => `
+        <div class="skeleton-card" aria-hidden="true">
+          <div class="sk sk-mark"></div>
+          <div class="sk-lines">
+            <div class="sk sk-line w-30"></div>
+            <div class="sk sk-line w-65"></div>
+            <div class="sk sk-line w-45"></div>
+            <div class="sk sk-line w-90"></div>
+          </div>
+        </div>`,
+      )
+      .join("");
+  }
+
+  function emptyMarkup(): string {
+    return `
+      <div class="state-card">
+        <svg class="state-icon" viewBox="0 0 92 92" fill="none" aria-hidden="true">
+          <circle cx="46" cy="46" r="35" stroke="currentColor" stroke-width="1.4" opacity=".55" />
+          <circle cx="46" cy="46" r="22" stroke="currentColor" stroke-width="1.4" opacity=".8" />
+          <circle cx="46" cy="46" r="9" stroke="currentColor" stroke-width="1.4" />
+          <path class="sweep" d="M46 46 78 24 A37 37 0 0 0 50 9 Z" fill="currentColor" opacity=".18" />
+          <path d="M46 46 69 31" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity=".7" />
+          <circle cx="46" cy="46" r="2.4" fill="currentColor" />
+        </svg>
+        <h3>No signals on this frequency</h3>
+        <p>
+          Nothing matches those filters right now. Try a broader keyword, another
+          location, or clear the search to see every open role.
+        </p>
+        <button class="btn btn-ghost" type="button" data-action="clear">Clear filters</button>
+      </div>`;
+  }
+
+  function errorMarkup(message: string): string {
+    return `
+      <div class="state-card is-error">
+        <svg class="state-icon" viewBox="0 0 92 92" fill="none" aria-hidden="true">
+          <circle cx="46" cy="46" r="33" stroke="currentColor" stroke-width="1.5" opacity=".6" />
+          <path d="M46 29v22" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+          <circle cx="46" cy="61" r="1.9" fill="currentColor" />
+        </svg>
+        <h3>The radar went quiet</h3>
+        <p>We couldn’t reach the job feed. The API may be restarting or temporarily unavailable.</p>
+        <p class="error-detail">${escapeHtml(message)}</p>
+        <button class="btn btn-ghost" type="button" data-action="retry">Try again</button>
+      </div>`;
+  }
+
+  function jobMarkup(job: JobSummary): string {
+    const meta = companyMeta(job.company);
+    const location = job.location || "Location not listed";
+    const excerpt = job.excerpt || "Open the posting for the full description.";
+    const closed = job.is_active ? "" : '<span class="closed-tag">Closed</span>';
+
+    return `
+      <article class="job-card${job.is_active ? "" : " is-closed"}">
+        <span class="company-mark" style="--company-color:${meta.color}" aria-hidden="true">${escapeHtml(meta.short)}</span>
+        <div class="job-body">
+          <p class="job-kicker">
+            <span class="job-company">${escapeHtml(job.company)}</span>
+            <span class="kicker-dot" aria-hidden="true"></span>
+            <span>${escapeHtml(formatPosted(job.posted_date))}</span>
+            ${closed}
+          </p>
+          <h3 class="job-title"><a href="/job/?id=${job.id}">${escapeHtml(job.title)}</a></h3>
+          <p class="job-location">
+            <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M8 14.2s4.7-4.2 4.7-8A4.7 4.7 0 0 0 3.3 6.2c0 3.8 4.7 8 4.7 8Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
+              <circle cx="8" cy="6.2" r="1.6" stroke="currentColor" stroke-width="1.3" />
+            </svg>
+            <span>${escapeHtml(location)}</span>
+          </p>
+          <p class="job-excerpt">${escapeHtml(excerpt)}</p>
+        </div>
+        <span class="job-cta" aria-hidden="true">
+          <span>View role</span>
+          <span class="job-cta-arrow">
+            <svg viewBox="0 0 16 16" fill="none">
+              <path d="M3.5 12.5 12.5 3.5M5.5 3.5h7v7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
+        </span>
+      </article>`;
+  }
+
+  function renderPagination(current: number, pages: number): void {
+    if (pages <= 1) {
+      pagination.hidden = true;
+      pagination.innerHTML = "";
+      return;
+    }
+
+    const pagesHtml = pageWindow(current, pages)
+      .map((entry) => {
+        if (entry === "gap") return '<span class="page-ellipsis" aria-hidden="true">…</span>';
+        const isCurrent = entry === current;
+        return `<button class="page-btn" type="button" data-page="${entry}"${
+          isCurrent ? ' aria-current="page"' : ""
+        } aria-label="Page ${entry}">${entry}</button>`;
+      })
+      .join("");
+
+    pagination.innerHTML = `
+      <button class="page-btn" type="button" data-page="${current - 1}" ${
+        current <= 1 ? "disabled" : ""
+      } aria-label="Previous page">← Prev</button>
+      ${pagesHtml}
+      <button class="page-btn" type="button" data-page="${current + 1}" ${
+        current >= pages ? "disabled" : ""
+      } aria-label="Next page">Next →</button>`;
+    pagination.hidden = false;
+  }
+
+  function renderJobs(data: JobListResponse): void {
+    state.page = data.page;
+    state.pages = data.pages;
+
+    const noun = data.total === 1 ? "role" : "roles";
+    resultCount.textContent = `${formatNumber(data.total)} ${noun}`;
+    statusRegion.textContent = `${data.total} ${noun} found. Page ${data.page} of ${Math.max(
+      1,
+      data.pages,
+    )}.`;
+
+    if (!data.items.length) {
+      list.innerHTML = emptyMarkup();
+      renderPagination(0, 0);
+      return;
+    }
+
+    list.innerHTML = data.items
+      .map((job) => `<div class="job-item">${jobMarkup(job)}</div>`)
+      .join("");
+    renderPagination(data.page, data.pages);
+  }
+
+  async function loadJobs(options: { scroll?: boolean } = {}): Promise<void> {
+    controller?.abort();
+    const current = new AbortController();
+    controller = current;
+
+    list.setAttribute("aria-busy", "true");
+    list.innerHTML = skeletonMarkup();
+    pagination.hidden = true;
+    resultCount.textContent = "Searching…";
+
+    const params = new URLSearchParams();
+    params.set("page", String(state.page));
+    params.set("page_size", String(PAGE_SIZE));
+    if (state.keyword) params.set("keyword", state.keyword);
+    if (state.company) params.set("company", state.company);
+    if (state.location) params.set("location", state.location);
+
+    try {
+      const data = await fetchJSON<JobListResponse>(`/api/jobs?${params}`, current.signal);
+      if (current.signal.aborted) return;
+
+      if (data.pages > 0 && data.page > data.pages && state.page !== data.pages) {
+        state.page = data.pages;
+        await loadJobs(options);
+        return;
+      }
+
+      renderJobs(data);
+      updateUrl();
+      if (options.scroll) {
+        resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    } catch (error) {
+      if (current.signal.aborted) return;
+      const message = error instanceof Error ? error.message : "Unknown error";
+      list.innerHTML = errorMarkup(message);
+      resultCount.textContent = "Unavailable";
+      statusRegion.textContent = "The job feed could not be loaded.";
+    } finally {
+      if (!current.signal.aborted) list.setAttribute("aria-busy", "false");
+    }
+  }
+
+  function setCompanyOptions(companies: CompanyStat[]): void {
+    const selected = state.company;
+    const names = companies
+      .filter((item) => item.active_count > 0)
+      .sort((a, b) => b.active_count - a.active_count)
+      .map((item) => item.company);
+
+    const unique = [...new Set([...names, ...(selected ? [selected] : [])])];
+    companySelect.innerHTML = "";
+
+    const all = document.createElement("option");
+    all.value = "";
+    all.textContent = "All companies";
+    companySelect.append(all);
+
+    for (const name of unique.length ? unique : FALLBACK_COMPANIES) {
+      const option = document.createElement("option");
+      option.value = name;
+      option.textContent = name;
+      companySelect.append(option);
+    }
+
+    companySelect.value = selected;
+  }
+
+  async function loadStats(): Promise<void> {
+    if (statsLoaded) return;
+    try {
+      const stats = await fetchJSON<StatsResponse>("/api/stats");
+      statsLoaded = true;
+      statRoles.textContent = formatNumber(stats.active_jobs);
+      statRoles.removeAttribute("aria-busy");
+      statCompanies.textContent = formatNumber(
+        stats.companies.filter((item) => item.active_count > 0).length,
+      );
+      statCompanies.removeAttribute("aria-busy");
+      statUpdated.textContent = stats.last_scrape_at ? timeAgo(stats.last_scrape_at) : "Not yet";
+      setCompanyOptions(stats.companies);
+    } catch {
+      statRoles.textContent = "—";
+      statCompanies.textContent = "—";
+      statUpdated.textContent = "Unavailable";
+      setCompanyOptions(
+        FALLBACK_COMPANIES.map((company) => ({
+          company,
+          source: "",
+          count: 0,
+          active_count: 0,
+        })),
+      );
+    }
+  }
+
+  function readForm(): void {
+    state.keyword = keywordInput.value.trim();
+    state.company = companySelect.value;
+    state.location = locationInput.value.trim();
+    state.page = 1;
+    syncResetVisibility();
+  }
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    readForm();
+    void loadJobs({ scroll: true });
+  });
+
+  companySelect.addEventListener("change", () => {
+    readForm();
+    void loadJobs({ scroll: true });
+  });
+
+  resetButton.addEventListener("click", () => {
+    keywordInput.value = "";
+    companySelect.value = "";
+    locationInput.value = "";
+    readForm();
+    void loadJobs({ scroll: true });
+  });
+
+  list.addEventListener("click", (event) => {
+    const target = event.target as HTMLElement;
+    if (target.closest('[data-action="retry"]')) void loadJobs();
+    if (target.closest('[data-action="clear"]')) {
+      keywordInput.value = "";
+      companySelect.value = "";
+      locationInput.value = "";
+      readForm();
+      void loadJobs();
+    }
+  });
+
+  pagination.addEventListener("click", (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-page]");
+    if (!button || button.disabled) return;
+    const page = Number.parseInt(button.dataset.page ?? "", 10);
+    if (!Number.isFinite(page) || page < 1 || page > state.pages) return;
+    state.page = page;
+    void loadJobs({ scroll: true });
+  });
+
+  syncResetVisibility();
+  void loadStats();
+  void loadJobs();
+</script>

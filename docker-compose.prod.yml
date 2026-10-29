@@ -1,0 +1,55 @@
+# Production overrides. Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Adds resource ceilings and bounded container logs on top of the base stack.
+services:
+  db:
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  api:
+    environment:
+      APP_ENV: production
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1g
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  scheduler:
+    environment:
+      APP_ENV: production
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1g
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  frontend:
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

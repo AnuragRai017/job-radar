@@ -1,0 +1,15 @@
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["__pycache__", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = [
+    "B008", # FastAPI's Depends() in argument defaults is idiomatic.
+    "E501", # Line length is handled by the formatter and reviewed by eye.
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

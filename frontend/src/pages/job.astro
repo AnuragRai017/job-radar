@@ -1,0 +1,230 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Role details — RoleRadar"
+  description="View the full public job description and apply on the company’s official careers site."
+>
+  <div class="shell detail-shell">
+    <a class="back-link" href="/">
+      <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M13 8H3M7 4 3 8l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      All roles
+    </a>
+
+    <div id="detail" aria-busy="true">
+      <div class="detail-loading">
+        <div class="detail-skeleton">
+          <div class="sk sk-line w-30"></div>
+          <div class="sk sk-title"></div>
+          <div class="sk sk-line w-45"></div>
+        </div>
+        <div class="detail-body-skeleton">
+          <div class="sk sk-line w-90"></div>
+          <div class="sk sk-line w-90"></div>
+          <div class="sk sk-line w-65"></div>
+          <div class="sk sk-line w-90"></div>
+          <div class="sk sk-line w-45"></div>
+          <div class="sk sk-line w-90"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import {
+    companyMeta,
+    descriptionMarkup,
+    escapeHtml,
+    fetchJSON,
+    formatDate,
+    formatPosted,
+    safeExternalUrl,
+    timeAgo,
+    type JobDetail,
+  } from "../scripts/api";
+
+  const container = document.querySelector<HTMLDivElement>("#detail")!;
+  const params = new URLSearchParams(window.location.search);
+  const rawId = params.get("id") ?? "";
+  const jobId = Number.parseInt(rawId, 10);
+
+  const sourceLabels: Record<string, string> = {
+    deloitte: "Deloitte careers",
+    capgemini: "Capgemini careers",
+    jpmorgan: "JPMorgan Chase careers",
+    google: "Google careers",
+  };
+
+  function stateView(title: string, message: string, detail = ""): string {
+    return `
+      <div class="state-card detail-error is-error">
+        <svg class="state-icon" viewBox="0 0 92 92" fill="none" aria-hidden="true">
+          <circle cx="46" cy="46" r="33" stroke="currentColor" stroke-width="1.5" opacity=".6" />
+          <path d="M46 29v22" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+          <circle cx="46" cy="61" r="1.9" fill="currentColor" />
+        </svg>
+        <h3>${escapeHtml(title)}</h3>
+        <p>${escapeHtml(message)}</p>
+        ${detail ? `<p class="error-detail">${escapeHtml(detail)}</p>` : ""}
+        <a class="btn btn-ghost" href="/">Browse all roles</a>
+      </div>`;
+  }
+
+  function detailView(job: JobDetail): string {
+    const meta = companyMeta(job.company);
+    const applyUrl = safeExternalUrl(job.apply_url);
+    const sourceLabel = sourceLabels[job.source] ?? `${job.company} careers`;
+    const location = job.location || "Location not listed";
+    const description = descriptionMarkup(job.description_html, job.description_text);
+
+    const applyAction = applyUrl
+      ? `<a class="btn btn-primary" href="${escapeHtml(applyUrl)}" target="_blank" rel="noopener noreferrer">
+           Apply on company site
+           <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+             <path d="M4 12 12 4M6 4h6v6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+           </svg>
+         </a>`
+      : `<span class="btn btn-ghost" aria-disabled="true">Application link unavailable</span>`;
+
+    const closedNotice = job.is_active
+      ? ""
+      : `<div class="notice">
+           <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+             <circle cx="8" cy="8" r="6.4" stroke="currentColor" stroke-width="1.3" />
+             <path d="M8 5v3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+             <circle cx="8" cy="11" r=".9" fill="currentColor" />
+           </svg>
+           <span>This listing is no longer active in the latest sweep. The original page may
+           still accept applications, or the role may have closed.</span>
+         </div>`;
+
+    return `
+      <article>
+        <header class="detail-hero">
+          <div class="detail-kicker">
+            <span class="job-company">${escapeHtml(job.company)}</span>
+            <span class="kicker-dot" aria-hidden="true"></span>
+            <span>${escapeHtml(sourceLabel)}</span>
+            ${job.is_active ? "" : '<span class="closed-tag">Closed</span>'}
+          </div>
+
+          <div class="detail-heading">
+            <span class="company-mark company-mark--lg" style="--company-color:${meta.color}" aria-hidden="true">${escapeHtml(meta.short)}</span>
+            <div class="detail-heading-text">
+              <h1>${escapeHtml(job.title)}</h1>
+              <div class="detail-meta">
+                <span>
+                  <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M8 14.2s4.7-4.2 4.7-8A4.7 4.7 0 0 0 3.3 6.2c0 3.8 4.7 8 4.7 8Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
+                    <circle cx="8" cy="6.2" r="1.6" stroke="currentColor" stroke-width="1.3" />
+                  </svg>
+                  ${escapeHtml(location)}
+                </span>
+                <span>
+                  <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <rect x="2.8" y="3.4" width="10.4" height="9.8" rx="1.5" stroke="currentColor" stroke-width="1.3" />
+                    <path d="M2.8 6.6h10.4M5.4 2.2v2.4M10.6 2.2v2.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+                  </svg>
+                  ${escapeHtml(formatPosted(job.posted_date))}
+                </span>
+                <span>Ref ${escapeHtml(job.external_id)}</span>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div class="detail-grid">
+          <div class="detail-main">
+            <p class="section-label">Role description</p>
+            <div class="prose">${description}</div>
+          </div>
+
+          <aside class="detail-aside" aria-label="Apply and role details">
+            ${closedNotice}
+            <div class="apply-card">
+              ${applyAction}
+              <p class="apply-note">
+                Opens the official posting in a new tab. RoleRadar never collects applications.
+              </p>
+            </div>
+
+            <div class="snapshot">
+              <h2>At a glance</h2>
+              <dl>
+                <div class="snapshot-row">
+                  <dt>Company</dt>
+                  <dd>${escapeHtml(job.company)}</dd>
+                </div>
+                <div class="snapshot-row">
+                  <dt>Location</dt>
+                  <dd>${escapeHtml(location)}</dd>
+                </div>
+                <div class="snapshot-row">
+                  <dt>Posted</dt>
+                  <dd>${escapeHtml(job.posted_date ? formatDate(job.posted_date) : "Not listed")}</dd>
+                </div>
+                <div class="snapshot-row">
+                  <dt>Source</dt>
+                  <dd>${escapeHtml(sourceLabel)}</dd>
+                </div>
+                <div class="snapshot-row">
+                  <dt>First seen</dt>
+                  <dd>${escapeHtml(formatDate(job.first_seen_at))}</dd>
+                </div>
+                <div class="snapshot-row">
+                  <dt>Checked</dt>
+                  <dd>${escapeHtml(timeAgo(job.scraped_at))}</dd>
+                </div>
+                <div class="snapshot-row">
+                  <dt>Reference</dt>
+                  <dd>${escapeHtml(job.external_id)}</dd>
+                </div>
+              </dl>
+            </div>
+          </aside>
+        </div>
+      </article>`;
+  }
+
+  async function loadJob(): Promise<void> {
+    if (!rawId || !Number.isSafeInteger(jobId) || jobId < 1) {
+      container.innerHTML = stateView(
+        "No role selected",
+        "This page needs a job id. Pick a role from the feed to see its full description.",
+      );
+      container.setAttribute("aria-busy", "false");
+      return;
+    }
+
+    try {
+      const job = await fetchJSON<JobDetail>(`/api/jobs/${jobId}`);
+      container.innerHTML = detailView(job);
+      container.setAttribute("aria-busy", "false");
+
+      document.title = `${job.title} · ${job.company} — RoleRadar`;
+      const description = document.querySelector<HTMLMetaElement>('meta[name="description"]');
+      if (description) {
+        description.content = `${job.title} at ${job.company}${
+          job.location ? ` in ${job.location}` : ""
+        }. View the role and apply on the company’s official careers site.`;
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      const notFound = /not found/i.test(message);
+      container.innerHTML = stateView(
+        notFound ? "That role slipped away" : "We couldn’t load this role",
+        notFound
+          ? "The posting may have been removed, or the link may be incomplete. It might still appear in the feed under another id."
+          : "The job feed may be restarting or temporarily unavailable. Try again in a moment.",
+        notFound ? "" : message,
+      );
+      container.setAttribute("aria-busy", "false");
+    }
+  }
+
+  void loadJob();
+</script>

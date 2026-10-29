@@ -1,0 +1,24 @@
+{
+  "name": "roleradar-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Static Astro frontend for the RoleRadar job aggregator",
+  "engines": {
+    "node": ">=22.23.4"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check"
+  },
+  "dependencies": {
+    "astro": "^7.4.4"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.5",
+    "@types/node": "^26.6.6",
+    "typescript": "^5.9.3"
+  }
+}
