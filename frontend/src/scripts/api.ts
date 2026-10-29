@@ -9,6 +9,8 @@ export interface JobSummary {
   posted_date: string | null;
   excerpt: string;
   is_active: boolean;
+  fit_score: number | null;
+  fit_verdict: string | null;
   scraped_at: string;
 }
 
@@ -17,6 +19,11 @@ export interface JobDetail extends JobSummary {
   description_text: string;
   first_seen_at: string;
   last_seen_at: string;
+  fit_reasons: string[];
+  fit_gaps: string[];
+  fit_method: string | null;
+  fit_model: string | null;
+  fit_scored_at: string | null;
 }
 
 export interface JobListResponse {
@@ -37,6 +44,8 @@ export interface CompanyStat {
 export interface StatsResponse {
   total_jobs: number;
   active_jobs: number;
+  fit_scored_jobs: number;
+  fit_best_score: number | null;
   companies: CompanyStat[];
   last_scrape_at: string | null;
   last_successful_scrape_at: string | null;
@@ -63,6 +72,10 @@ const COMPANY_META: Record<string, CompanyMeta> = {
   Medallion: { short: "MD", color: "var(--company-medallion)" },
   "Deloitte India": { short: "DI", color: "var(--company-deloitte-india)" },
   "Capgemini India": { short: "CI", color: "var(--company-capgemini-india)" },
+  "KPMG Global Services": { short: "KGS", color: "var(--company-kpmg)" },
+  "KPMG India": { short: "KPMG", color: "var(--company-kpmg-india)" },
+  "McKinsey & Company": { short: "MC", color: "var(--company-mckinsey)" },
+  "PwC India": { short: "PwC", color: "var(--company-pwc)" },
 };
 
 export function companyMeta(name: string): CompanyMeta {

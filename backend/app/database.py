@@ -6,7 +6,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -75,12 +75,51 @@ def session_scope() -> Generator[Session, None, None]:
         db.close()
 
 
+_FIT_COLUMNS = {
+    "fit_score": "INTEGER",
+    "fit_verdict": "VARCHAR(16)",
+    "fit_reasons": "JSON",
+    "fit_gaps": "JSON",
+    "fit_method": "VARCHAR(16)",
+    "fit_model": "VARCHAR(128)",
+    "fit_scored_at": "TIMESTAMP WITH TIME ZONE",
+    "fit_resume_hash": "VARCHAR(64)",
+}
+
+
+def _ensure_fit_columns() -> None:
+    """Add fit-scoring columns to an existing jobs table (additive migration)."""
+    inspector = inspect(engine)
+    if "jobs" not in inspector.get_table_names():
+        return
+    existing = {column["name"] for column in inspector.get_columns("jobs")}
+    missing = {name: ddl for name, ddl in _FIT_COLUMNS.items() if name not in existing}
+    if not missing:
+        return
+
+    dialect = engine.dialect.name
+    with engine.begin() as connection:
+        for name, ddl in missing.items():
+            column_type = ddl
+            if dialect == "sqlite":
+                column_type = {
+                    "JSON": "TEXT",
+                    "TIMESTAMP WITH TIME ZONE": "DATETIME",
+                }.get(ddl, ddl)
+            connection.execute(text(f"ALTER TABLE jobs ADD COLUMN {name} {column_type}"))
+        connection.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_jobs_fit_score ON jobs (fit_score)")
+        )
+    logger.info("Added fit-scoring columns to jobs: %s", ", ".join(sorted(missing)))
+
+
 def init_db(max_attempts: int = 12, delay_seconds: float = 2.0) -> None:
     """Create tables, retrying while a fresh PostgreSQL container starts."""
     last_error: Exception | None = None
     for attempt in range(1, max_attempts + 1):
         try:
             Base.metadata.create_all(bind=engine)
+            _ensure_fit_columns()
             logger.info("Database ready (%s)", engine.url.render_as_string(hide_password=True))
             return
         except Exception as exc:  # noqa: BLE001 - surfaced after retries

@@ -38,6 +38,8 @@ def _to_summary(job: Job) -> JobSummary:
         posted_date=job.posted_date,
         excerpt=make_excerpt(job.description_text),
         is_active=job.is_active,
+        fit_score=job.fit_score,
+        fit_verdict=job.fit_verdict,
         scraped_at=job.scraped_at,
     )
 
@@ -59,6 +61,13 @@ def _to_detail(job: Job) -> JobDetail:
         description_text=job.description_text,
         first_seen_at=job.first_seen_at,
         last_seen_at=job.last_seen_at,
+        fit_score=job.fit_score,
+        fit_verdict=job.fit_verdict,
+        fit_reasons=list(job.fit_reasons or []),
+        fit_gaps=list(job.fit_gaps or []),
+        fit_method=job.fit_method,
+        fit_model=job.fit_model,
+        fit_scored_at=job.fit_scored_at,
     )
 
 
@@ -73,6 +82,8 @@ def list_jobs(
     location: str | None = Query(None, max_length=200),
     keyword: str | None = Query(None, max_length=200),
     include_inactive: bool = Query(False),
+    min_fit: int | None = Query(None, ge=0, le=100),
+    sort: str = Query("newest", pattern="^(newest|fit)$"),
 ) -> JobListResponse:
     conditions = []
     if not include_inactive:
@@ -93,13 +104,24 @@ def list_jobs(
                 Job.external_id.ilike(pattern, escape="\\"),
             )
         )
+    if min_fit is not None:
+        conditions.append(Job.fit_score >= min_fit)
 
     total = db.execute(select(func.count()).select_from(Job).where(*conditions)).scalar_one()
-    order = (
-        case((Job.posted_date.is_(None), 1), else_=0),
-        Job.posted_date.desc(),
-        Job.id.desc(),
-    )
+    if sort == "fit":
+        order = (
+            case((Job.fit_score.is_(None), 1), else_=0),
+            Job.fit_score.desc(),
+            case((Job.posted_date.is_(None), 1), else_=0),
+            Job.posted_date.desc(),
+            Job.id.desc(),
+        )
+    else:
+        order = (
+            case((Job.posted_date.is_(None), 1), else_=0),
+            Job.posted_date.desc(),
+            Job.id.desc(),
+        )
     jobs = (
         db.execute(
             select(Job)
@@ -154,6 +176,16 @@ def get_stats(db: Session = Depends(get_db)) -> StatsResponse:
 
     total_jobs = sum(item.count for item in companies)
     active_jobs = sum(item.active_count for item in companies)
+    fit_scored_jobs = db.execute(
+        select(func.count(Job.fit_score)).where(
+            Job.is_active.is_(True), Job.fit_score.is_not(None)
+        )
+    ).scalar_one()
+    fit_best_score = db.execute(
+        select(func.max(Job.fit_score)).where(
+            Job.is_active.is_(True), Job.fit_score.is_not(None)
+        )
+    ).scalar_one()
 
     latest_run = db.execute(
         select(ScrapeRun).order_by(ScrapeRun.started_at.desc(), ScrapeRun.id.desc()).limit(1)
@@ -172,6 +204,8 @@ def get_stats(db: Session = Depends(get_db)) -> StatsResponse:
     return StatsResponse(
         total_jobs=total_jobs,
         active_jobs=active_jobs,
+        fit_scored_jobs=int(fit_scored_jobs or 0),
+        fit_best_score=int(fit_best_score) if fit_best_score is not None else None,
         companies=companies,
         last_scrape_at=last_scrape_at,
         last_successful_scrape_at=(

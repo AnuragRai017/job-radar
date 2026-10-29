@@ -57,6 +57,20 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     capgemini: "Capgemini careers",
     jpmorgan: "JPMorgan Chase careers",
     google: "Google careers",
+    deloitte_india: "Deloitte India careers",
+    capgemini_india: "Capgemini India careers",
+    exl: "EXL careers",
+    concentrix: "Concentrix careers",
+    amazon: "Amazon careers",
+    microsoft: "Microsoft careers",
+    medallion: "Medallion careers",
+    cadence: "Cadence careers",
+    hsbc: "HSBC careers",
+    ey: "EY careers",
+    kpmg_gs: "KPMG Global Services careers",
+    kpmg_india: "KPMG India careers",
+    mckinsey: "McKinsey & Company careers",
+    pwc_india: "PwC India careers",
   };
 
   function stateView(title: string, message: string, detail = ""): string {
@@ -71,6 +85,36 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         <p>${escapeHtml(message)}</p>
         ${detail ? `<p class="error-detail">${escapeHtml(detail)}</p>` : ""}
         <a class="btn btn-ghost" href="/">Browse all roles</a>
+      </div>`;
+  }
+
+  function fitCard(job: JobDetail): string {
+    if (job.fit_score === null || job.fit_score === undefined) return "";
+    const verdict =
+      job.fit_verdict ??
+      (job.fit_score >= 75 ? "strong" : job.fit_score >= 50 ? "possible" : "weak");
+    const className =
+      verdict === "strong" ? "is-strong" : verdict === "possible" ? "is-possible" : "is-weak";
+    const reasons = (job.fit_reasons ?? [])
+      .map((item) => `<li>${escapeHtml(item)}</li>`)
+      .join("");
+    const gaps = (job.fit_gaps ?? [])
+      .map((item) => `<li>${escapeHtml(item)}</li>`)
+      .join("");
+    const method = job.fit_method === "llm" ? "Local AI analysis" : "Resume keyword match";
+    const model = job.fit_model ? ` · ${escapeHtml(job.fit_model)}` : "";
+
+    return `
+      <div class="fit-card ${className}">
+        <div class="fit-card-head">
+          <h2>Resume fit</h2>
+          <div class="fit-score">${job.fit_score}<small>/100</small></div>
+        </div>
+        <p class="fit-verdict">${escapeHtml(verdict)} match</p>
+        <div class="fit-meter"><span style="width:${Math.max(0, Math.min(100, job.fit_score))}%"></span></div>
+        ${reasons ? `<p class="fit-subhead">Why it fits</p><ul class="fit-reasons">${reasons}</ul>` : ""}
+        ${gaps ? `<p class="fit-subhead">Gaps to address</p><ul class="fit-gaps">${gaps}</ul>` : ""}
+        <p class="fit-method">${method}${model}</p>
       </div>`;
   }
 
@@ -145,6 +189,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
           <aside class="detail-aside" aria-label="Apply and role details">
             ${closedNotice}
+            ${fitCard(job)}
             <div class="apply-card">
               ${applyAction}
               <p class="apply-note">

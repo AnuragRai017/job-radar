@@ -11,8 +11,12 @@ from app.scrapers.exl import EXLScraper
 from app.scrapers.google import GoogleScraper
 from app.scrapers.greenhouse import MedallionScraper
 from app.scrapers.jpmorgan import JPMorganScraper
+from app.scrapers.kpmg_gs import KPMGGlobalServicesScraper
+from app.scrapers.mckinsey import McKinseyScraper
 from app.scrapers.models import BaseScraper
 from app.scrapers.successfactors import DeloitteIndiaScraper, EYScraper
+from app.scrapers.talentrecruit import KPMGIndiaScraper
+from app.scrapers.workday import PwCIndiaScraper
 
 SCRAPER_CLASSES: dict[str, type[BaseScraper]] = {
     "jpmorgan": JPMorganScraper,
@@ -29,6 +33,10 @@ SCRAPER_CLASSES: dict[str, type[BaseScraper]] = {
     "cadence": CadenceScraper,
     "hsbc": HSBCScraper,
     "ey": EYScraper,
+    "kpmg_gs": KPMGGlobalServicesScraper,
+    "kpmg_india": KPMGIndiaScraper,
+    "mckinsey": McKinseyScraper,
+    "pwc_india": PwCIndiaScraper,
 }
 
 COMPANY_NAMES = {
@@ -46,6 +54,10 @@ COMPANY_NAMES = {
     "cadence": "Cadence",
     "hsbc": "HSBC",
     "ey": "EY",
+    "kpmg_gs": "KPMG Global Services",
+    "kpmg_india": "KPMG India",
+    "mckinsey": "McKinsey & Company",
+    "pwc_india": "PwC India",
 }
 
 

@@ -10,3 +10,4 @@ beautifulsoup4>=4.12,<5.0
 lxml>=5.3,<6.0
 bleach>=6.2,<7.0
 protego>=0.4,<1.0
+PyNaCl>=1.5,<2.0

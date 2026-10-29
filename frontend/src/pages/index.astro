@@ -9,10 +9,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         <p class="eyebrow">Live public job feeds</p>
         <h1>Your next move,<br /><em>already on the radar.</em></h1>
         <p class="hero-lede">
-          One quiet place to search <strong>14 public career sites, including Deloitte,
-          Capgemini, Amazon, Microsoft, HSBC, and EY</strong>. Public postings, swept every
-          six hours, stored without duplicate rows — and always linked back to the company’s
-          own application page.
+          One quiet place to search <strong>18 public career sites, including Deloitte,
+          Capgemini, Amazon, Microsoft, HSBC, EY, KPMG, McKinsey, and PwC</strong>. Public
+          postings are swept every six hours, scored against your resume, stored without
+          duplicate rows, and always linked back to the company’s own application page.
         </p>
 
         <div class="stat-strip" aria-label="Feed statistics">
@@ -38,7 +38,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       <div class="filter-card">
         <div class="filter-heading">
           <h2>Filter the signal</h2>
-          <span>14 feeds</span>
+          <span>18 feeds</span>
         </div>
         <p class="filter-intro">Narrow by role, team, or place. Changes search all public postings.</p>
 
@@ -72,6 +72,25 @@ import BaseLayout from "../layouts/BaseLayout.astro";
               autocomplete="off"
               maxlength="200"
             />
+          </div>
+
+          <div class="field">
+            <label for="min-fit">Minimum fit</label>
+            <select id="min-fit" name="min_fit">
+              <option value="">Any score</option>
+              <option value="50">50+ · possible</option>
+              <option value="60">60+</option>
+              <option value="70">70+ · strong</option>
+              <option value="80">80+ · best</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="sort">Sort by</label>
+            <select id="sort" name="sort">
+              <option value="newest">Newest postings</option>
+              <option value="fit">Best fit first</option>
+            </select>
           </div>
 
           <button class="btn btn-primary" type="submit">
@@ -167,6 +186,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   const keywordInput = document.querySelector<HTMLInputElement>("#keyword")!;
   const companySelect = document.querySelector<HTMLSelectElement>("#company")!;
   const locationInput = document.querySelector<HTMLInputElement>("#location")!;
+  const minFitSelect = document.querySelector<HTMLSelectElement>("#min-fit")!;
+  const sortSelect = document.querySelector<HTMLSelectElement>("#sort")!;
   const resetButton = document.querySelector<HTMLButtonElement>("#reset")!;
   const resultCount = document.querySelector<HTMLElement>("#result-count")!;
   const statusRegion = document.querySelector<HTMLElement>("#status")!;
@@ -188,8 +209,12 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     "Google",
     "HSBC",
     "JPMorgan Chase",
+    "KPMG Global Services",
+    "KPMG India",
+    "McKinsey & Company",
     "Medallion",
     "Microsoft",
+    "PwC India",
   ];
 
   const initial = new URLSearchParams(window.location.search);
@@ -197,18 +222,28 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     keyword: initial.get("q")?.trim() ?? "",
     company: initial.get("company")?.trim() ?? "",
     location: initial.get("location")?.trim() ?? "",
+    minFit: initial.get("min_fit")?.trim() ?? "",
+    sort: initial.get("sort") === "fit" ? "fit" : "newest",
     page: Math.max(1, Number.parseInt(initial.get("page") ?? "1", 10) || 1),
     pages: 0,
   };
 
   keywordInput.value = state.keyword;
   locationInput.value = state.location;
+  minFitSelect.value = state.minFit;
+  sortSelect.value = state.sort;
 
   let controller: AbortController | null = null;
   let statsLoaded = false;
 
   function hasFilters(): boolean {
-    return Boolean(state.keyword || state.company || state.location);
+    return Boolean(
+      state.keyword ||
+        state.company ||
+        state.location ||
+        state.minFit ||
+        state.sort !== "newest",
+    );
   }
 
   function syncResetVisibility(): void {
@@ -222,6 +257,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       ["q", state.keyword],
       ["company", state.company],
       ["location", state.location],
+      ["min_fit", state.minFit],
+      ["sort", state.sort === "fit" ? "fit" : ""],
     ];
 
     for (const [key, value] of values) {
@@ -287,11 +324,20 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       </div>`;
   }
 
+  function fitBadge(job: JobSummary): string {
+    if (job.fit_score === null || job.fit_score === undefined) return "";
+    const verdict =
+      job.fit_verdict ??
+      (job.fit_score >= 75 ? "strong" : job.fit_score >= 50 ? "possible" : "weak");
+    return `<span class="fit-badge fit-badge--${escapeHtml(verdict)}">Fit ${job.fit_score}</span>`;
+  }
+
   function jobMarkup(job: JobSummary): string {
     const meta = companyMeta(job.company);
     const location = job.location || "Location not listed";
     const excerpt = job.excerpt || "Open the posting for the full description.";
     const closed = job.is_active ? "" : '<span class="closed-tag">Closed</span>';
+    const fit = fitBadge(job);
 
     return `
       <article class="job-card${job.is_active ? "" : " is-closed"}">
@@ -301,6 +347,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
             <span class="job-company">${escapeHtml(job.company)}</span>
             <span class="kicker-dot" aria-hidden="true"></span>
             <span>${escapeHtml(formatPosted(job.posted_date))}</span>
+            ${fit}
             ${closed}
           </p>
           <h3 class="job-title"><a href="/job/?id=${job.id}">${escapeHtml(job.title)}</a></h3>
@@ -391,6 +438,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     if (state.keyword) params.set("keyword", state.keyword);
     if (state.company) params.set("company", state.company);
     if (state.location) params.set("location", state.location);
+    if (state.minFit) params.set("min_fit", state.minFit);
+    if (state.sort === "fit") params.set("sort", "fit");
 
     try {
       const data = await fetchJSON<JobListResponse>(`/api/jobs?${params}`, current.signal);
@@ -475,6 +524,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     state.keyword = keywordInput.value.trim();
     state.company = companySelect.value;
     state.location = locationInput.value.trim();
+    state.minFit = minFitSelect.value;
+    state.sort = sortSelect.value === "fit" ? "fit" : "newest";
     state.page = 1;
     syncResetVisibility();
   }
@@ -490,10 +541,22 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     void loadJobs({ scroll: true });
   });
 
+  minFitSelect.addEventListener("change", () => {
+    readForm();
+    void loadJobs({ scroll: true });
+  });
+
+  sortSelect.addEventListener("change", () => {
+    readForm();
+    void loadJobs({ scroll: true });
+  });
+
   resetButton.addEventListener("click", () => {
     keywordInput.value = "";
     companySelect.value = "";
     locationInput.value = "";
+    minFitSelect.value = "";
+    sortSelect.value = "newest";
     readForm();
     void loadJobs({ scroll: true });
   });
@@ -505,6 +568,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       keywordInput.value = "";
       companySelect.value = "";
       locationInput.value = "";
+      minFitSelect.value = "";
+      sortSelect.value = "newest";
       readForm();
       void loadJobs();
     }

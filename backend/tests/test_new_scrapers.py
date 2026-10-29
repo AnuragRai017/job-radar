@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import base64
+import json
 from datetime import date
 
 from bs4 import BeautifulSoup
+from nacl.public import Box, PrivateKey
 
 from app.scrapers.amazon import AmazonScraper, _parse_amazon_date
 from app.scrapers.cadence import CadenceScraper
@@ -11,11 +14,15 @@ from app.scrapers.concentrix import ConcentrixScraper
 from app.scrapers.eightfold import HSBCScraper, MicrosoftScraper
 from app.scrapers.exl import EXLScraper
 from app.scrapers.greenhouse import MedallionScraper
+from app.scrapers.kpmg_gs import KPMGGlobalServicesScraper
+from app.scrapers.mckinsey import McKinseyScraper
 from app.scrapers.registry import SCRAPER_CLASSES
 from app.scrapers.successfactors import DeloitteIndiaScraper, EYScraper
+from app.scrapers.talentrecruit import SECRET_KEY, KPMGIndiaScraper
+from app.scrapers.workday import PwCIndiaScraper
 
 
-def test_registry_has_all_fourteen_sources() -> None:
+def test_registry_has_all_eighteen_sources() -> None:
     assert set(SCRAPER_CLASSES) == {
         "jpmorgan",
         "deloitte",
@@ -31,6 +38,10 @@ def test_registry_has_all_fourteen_sources() -> None:
         "cadence",
         "hsbc",
         "ey",
+        "kpmg_gs",
+        "kpmg_india",
+        "mckinsey",
+        "pwc_india",
     }
 
 
@@ -230,3 +241,112 @@ def test_cadence_parses_listing_links_and_remote_location() -> None:
     ]
     assert CadenceScraper._location("Remote-first team", "AI Engineer") == "Remote"
     assert CadenceScraper._location("Location: New York, NY", "AI Engineer") == "New York, NY"
+
+
+def test_kpmg_gs_uses_cx3_india_facet() -> None:
+    scraper = KPMGGlobalServicesScraper()
+    assert scraper.source == "kpmg_gs"
+    assert scraper.company == "KPMG Global Services"
+    assert scraper.site_number == "CX_3"
+    assert scraper.location_filter == ",locationId=300000000296042"
+    assert "ejgk.fa.em2.oraclecloud.com" in scraper.list_url
+
+
+def test_mckinsey_parses_india_job_and_filters_other_countries() -> None:
+    scraper = McKinseyScraper()
+    job = scraper._parse_job(
+        {
+            "jobID": "14918",
+            "title": "Data Engineer",
+            "countries": ["India", "United States"],
+            "cities": ["Bengaluru", "New York City"],
+            "friendlyURL": "dataengineer-14918",
+            "whoYouWillWorkWith": "<div>Work with teams.</div>",
+            "whatYouWillDo": "<div>Build data products.</div>",
+            "yourBackground": "<ul><li>Python and SQL.</li></ul>",
+        }
+    )
+    assert job is not None
+    assert job.external_id == "14918"
+    assert job.location == "Bengaluru"
+    assert job.apply_url == "https://www.mckinsey.com/careers/search-jobs/jobs/dataengineer-14918"
+    assert "What you will do" in job.description_html
+    assert "Python and SQL" in job.description_html
+
+    assert (
+        scraper._parse_job(
+            {
+                "jobID": "2",
+                "title": "Consultant",
+                "countries": ["United States"],
+                "cities": ["New York City"],
+                "friendlyURL": "consultant-2",
+                "whoYouWillWorkWith": "<div>Team.</div>",
+            }
+        )
+        is None
+    )
+
+
+def test_pwc_workday_listing_fields() -> None:
+    scraper = PwCIndiaScraper()
+    assert scraper.site == "Global_Experienced_Careers"
+    listing = scraper._parse_listing(
+        {
+            "title": "Data Engineer",
+            "externalPath": "/job/Bengaluru-Millenia/Data-Engineer_123WD",
+            "locationsText": "Bengaluru Millenia",
+            "bulletFields": ["123WD"],
+        }
+    )
+    assert listing is not None
+    assert listing.external_id == "123WD"
+    assert listing.location == "Bengaluru Millenia"
+    assert listing.path == "/job/Bengaluru-Millenia/Data-Engineer_123WD"
+
+
+def test_kpmg_talentrecruit_decrypts_and_parses_job() -> None:
+    server = PrivateKey.generate()
+    client_public = PrivateKey(SECRET_KEY).public_key
+    box = Box(server, client_public)
+    nonce = b"0" * 24
+    plaintext = json.dumps(
+        {
+            "error": False,
+            "statusCode": 200,
+            "data": {
+                "data": {
+                    "noOfTotalRecords": {"count": 1},
+                    "data": [
+                        {
+                            "jobid": "abc123",
+                            "title": "Data Engineer",
+                            "joblocation": "Bengaluru, Karnataka, India",
+                            "country": "India",
+                            "publishedtime": "2026-10-29T06:42:59.000Z",
+                            "description": "<p>Build pipelines.</p>",
+                            "qualificationcriteria": "<p>Python and SQL.</p>",
+                        }
+                    ],
+                }
+            },
+        }
+    ).encode()
+    encrypted = box.encrypt(plaintext, nonce)
+    payload = {
+        "text": base64.b64encode(encrypted.ciphertext).decode(),
+        "iv": base64.b64encode(bytes(server.public_key)).decode(),
+        "key": base64.b64encode(nonce).decode(),
+    }
+    decrypted = KPMGIndiaScraper._decrypt(payload)
+    inner = KPMGIndiaScraper._inner_payload(decrypted)
+    assert inner["noOfTotalRecords"]["count"] == 1
+
+    job = KPMGIndiaScraper()._parse_job(inner["data"][0])
+    assert job is not None
+    assert job.external_id == "abc123"
+    assert job.title == "Data Engineer"
+    assert job.location == "Bengaluru, Karnataka, India"
+    assert job.posted_date == date(2026, 10, 29)
+    assert "Qualifications" in job.description_html
+    assert job.apply_url.endswith("/career-page/apply/abc123")

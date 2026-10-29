@@ -1,10 +1,10 @@
 # RoleRadar
 
-A fault-tolerant job aggregator for fourteen public career sites — including
+A fault-tolerant job aggregator for eighteen public career sites — including
 **Deloitte**, **Capgemini**, **JPMorgan Chase**, **Google**, **Amazon**,
-**Microsoft**, **HSBC**, **EY**, **EXL**, **Concentrix**, **Cadence**, and
-**Medallion** — with a searchable web UI, a read-only JSON API, and a scheduled
-scraper.
+**Microsoft**, **HSBC**, **EY**, **EXL**, **Concentrix**, **Cadence**,
+**Medallion**, **KPMG**, **McKinsey**, and **PwC** — with a searchable web UI,
+a read-only JSON API, resume fit scores, and a scheduled scraper.
 
 RoleRadar is deliberately small and self-hosted: a FastAPI backend, PostgreSQL,
 an APScheduler worker, and a static Astro frontend served by Nginx. Everything
@@ -21,9 +21,12 @@ Browser ──:5100──► Nginx (Astro build) ──/api,/health──► Fas
 
 ## What it does
 
-- **Searches fourteen public feeds in one place.** Keyword, company, and location
-  filters with pagination. Full descriptions live on `/job/?id=…` and every
-  apply button points at the company’s own careers site.
+- **Searches eighteen public feeds in one place.** Keyword, company, location,
+  and minimum-fit filters with pagination. Full descriptions live on `/job/?id=…`
+  and every apply button points at the company’s own careers site.
+- **Scores jobs against your resume.** Every active job gets a deterministic
+  resume-match score; the strongest candidates are sent to an Ollama model for a
+  second opinion. Scores, reasons, and gaps appear in the list and detail views.
 - **Stores jobs idempotently.** A unique `(source, external_id)` constraint plus
   an upsert means repeated sweeps never duplicate rows.
 - **Scrapes politely.** 1.5-second per-host rate limit, User-Agent rotation,
@@ -57,13 +60,46 @@ Browser ──:5100──► Nginx (Astro build) ──/api,/health──► Fas
 | Medallion | Public Greenhouse board API (`medallionakafirstlayerai`) | 6 roles; full content in the list response |
 | Cadence | Public open-roles HTML + detail pages | 21 roles; description in `.job-description__content` |
 | HSBC | Eightfold `/api/apply/v2/jobs` API | 220 India roles; detail endpoint supplies descriptions |
+| KPMG Global Services | Oracle Recruiting Cloud REST API (`CX_3`) | 604 India requisitions via the `locationId` facet |
+| KPMG India | TalentRecruit career-page API | 102 roles; encrypted NaCl JSON, decrypted with the page’s public client key |
+| McKinsey & Company | Public careers search JSON (`gateway.mckinsey.com`) | 46 India roles; full role narrative in the list response |
+| PwC India | Workday CXS job API with the India location facet | 633 India roles; detail endpoint supplies descriptions |
 
 Counts change daily. A full live pass in October 2026 saw roughly 7,300 JPMC,
 6,800 Capgemini, 1,500 Deloitte, and 3,400 Google postings globally (strict
 robots stores only the first 20 Google results). The India-focused
-feeds add roughly 3,100 EY, 2,100 EXL, 2,100 Amazon, 790 Capgemini India, 240
-Microsoft, 220 HSBC, 73 Concentrix, 21 Cadence, and 6 Medallion roles, plus the
-paginated Deloitte India search.
+feeds add roughly 3,100 EY, 2,100 EXL, 2,100 Amazon, 790 Capgemini India, 640
+Deloitte India, 633 PwC India, 604 KPMG Global Services, 240 Microsoft, 220 HSBC,
+102 KPMG India, 73 Concentrix, 46 McKinsey, 21 Cadence, and 6 Medallion roles.
+
+### Resume fit scoring
+
+Put your resume at `data/Anurag_Rai_Resume.docx` (the `data/` directory is
+git-ignored and mounted read-only into the API and scheduler containers). Then:
+
+```bash
+docker compose exec scheduler python -m app.cli score --limit 300
+```
+
+The scorer:
+
+1. Extracts skills, target role families, seniority, and preferred locations
+   from the resume.
+2. Computes a deterministic 0–100 fit score for **every active job** using skill
+   overlap, title family, location, and seniority.
+3. Sends the highest-scoring candidates (default 300) to the configured Ollama
+   model for a second opinion, then blends the two scores.
+
+The UI exposes **Minimum fit** (50/60/70/80+) and **Best fit first** sorting.
+Each detail page shows the score, verdict, reasons, gaps, and whether the score
+came from the local heuristic or the model.
+
+> **Privacy:** the default `FIT_MODEL=gpt-oss:120b-cloud` forwards resume and job
+> text to `ollama.com`. Set `FIT_MODEL=mistral:7b-instruct` (or another installed
+> local tag) for fully local scoring; CPU-only hosts are much slower.
+
+Re-run scoring after a sweep, or set `FIT_SCORE_AFTER_SCRAPE=true` to score new
+jobs automatically after each scheduled sweep.
 
 ## Quick start (Docker)
 
@@ -119,6 +155,7 @@ docker compose logs -f scheduler
 docker compose exec scheduler python -m app.cli stats
 docker compose exec scheduler python -m app.cli scrape --sources google --limit 20
 docker compose exec scheduler python -m app.cli scrape --sources amazon,microsoft --limit 5
+docker compose exec scheduler python -m app.cli score --limit 300
 docker compose down            # keeps the pgdata volume
 docker compose down -v         # also deletes the database
 ```
@@ -144,9 +181,9 @@ Interactive docs: `/api/docs`. All responses are JSON; times are ISO-8601 UTC.
 
 | Endpoint | Description |
 | --- | --- |
-| `GET /api/jobs` | Paginated, active jobs. Query: `page`, `page_size` (1–100), `company`, `location`, `keyword`, `include_inactive` |
-| `GET /api/jobs/{id}` | Full description and provenance for one job |
-| `GET /api/stats` | Counts by company, latest run, last successful sweep |
+| `GET /api/jobs` | Paginated, active jobs. Query: `page`, `page_size` (1–100), `company`, `location`, `keyword`, `include_inactive`, `min_fit` (0–100), `sort` (`newest` or `fit`) |
+| `GET /api/jobs/{id}` | Full description, fit score/reasons/gaps, and provenance for one job |
+| `GET /api/stats` | Counts by company, fit coverage, latest run, last successful sweep |
 | `GET /health` | API + database health and last scrape time |
 
 Examples:
@@ -169,7 +206,7 @@ list. The ones that matter most:
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `DATABASE_URL` | SQLite locally, PostgreSQL in Compose | SQLAlchemy connection string |
-| `SCRAPE_SOURCES` | all 14 sources (`jpmorgan` … `ey`) | Comma-separated scrapers to run |
+| `SCRAPE_SOURCES` | all 18 sources (`jpmorgan` … `pwc_india`) | Comma-separated scrapers to run |
 | `SCRAPE_INTERVAL_HOURS` | `6` | Scheduler interval |
 | `SCRAPE_ON_STARTUP` | `true` | Run immediately when the worker starts |
 | `SCRAPE_MAX_JOBS_PER_SOURCE` | `0` | Per-source cap; `0` = unlimited |
@@ -181,8 +218,15 @@ list. The ones that matter most:
 | `CORS_ORIGINS` | localhost UI origins | Allowed browser origins |
 | `AI_FALLBACK_ENABLED` | `false` | Enable the optional Ollama extraction fallback |
 | `OLLAMA_BASE_URL` | `http://host.docker.internal:11434` | Ollama endpoint used by the fallback |
-| `OLLAMA_MODEL` | `gpt-oss:120b-cloud` | Installed Ollama model tag |
-| `AI_FALLBACK_MAX_CALLS` | `10` | Per-run AI call budget |
+| `OLLAMA_MODEL` | `gpt-oss:120b-cloud` | Installed Ollama model tag for AI extraction |
+| `AI_FALLBACK_MAX_CALLS` | `10` | Per-run AI extraction budget |
+| `RESUME_PATH` | `/app/data/Anurag_Rai_Resume.docx` | Resume used for fit scoring |
+| `FIT_MODEL` | `gpt-oss:120b-cloud` | Ollama model used for fit scoring |
+| `FIT_MAX_JOBS` | `300` | Jobs sent to the fit model per run |
+| `FIT_MIN_HEURISTIC` | `30` | Minimum heuristic score before an LLM call |
+| `FIT_SCORE_AFTER_SCRAPE` | `false` | Score new jobs after each sweep |
+| `FIT_LLM_TIMEOUT_SECONDS` | `120` | Per-fit-call timeout |
+| `FIT_RUN_TIMEOUT_SECONDS` | `3600` | Overall fit-run time budget |
 
 The Docker stack derives `DATABASE_URL` from `POSTGRES_DB`, `POSTGRES_USER`, and
 `POSTGRES_PASSWORD`, so those three values in `.env` are the ones to change.
@@ -312,9 +356,10 @@ python -m ruff check app tests
 ```
 
 The test suite uses a temporary SQLite database and covers the sanitizer,
-repository upserts/deactivation, API filters/pagination/detail/stats, all
-fourteen source parsers, and the AI fallback's JSON, URL, budget, and
-sanitization guardrails. It makes no live network requests.
+repository upserts/deactivation, API filters/pagination/detail/stats/fit
+scores, all eighteen source parsers, resume profile extraction, heuristic fit
+scoring, and the AI fallback's JSON, URL, budget, and sanitization guardrails.
+It makes no live network requests.
 
 Frontend checks:
 
@@ -331,6 +376,9 @@ npm run build
 ├── backend
 │   ├── app
 │   │   ├── api/routes.py         # /api/jobs, /api/jobs/{id}, /api/stats
+│   │   ├── fit
+│   │   │   ├── resume.py          # .docx extraction + resume profile
+│   │   │   └── scoring.py         # heuristic + Ollama fit scoring
 │   │   ├── scrapers
 │   │   │   ├── ai_fallback.py    # optional Ollama JSON extraction fallback
 │   │   │   ├── amazon.py         # Amazon Jobs search.json (India)
@@ -344,8 +392,12 @@ npm run build
 │   │   │   ├── google.py         # ds:1 blob parser + robots gate
 │   │   │   ├── greenhouse.py     # Medallion Greenhouse board API
 │   │   │   ├── jpmorgan.py       # JPMorgan Oracle Recruiting
+│   │   │   ├── kpmg_gs.py        # KPMG Global Services Oracle (CX_3)
+│   │   │   ├── mckinsey.py       # McKinsey careers search JSON
 │   │   │   ├── oracle.py         # shared Oracle Recruiting API logic
-│   │   │   └── successfactors.py # Deloitte India + EY SuccessFactors
+│   │   │   ├── successfactors.py # Deloitte India + EY SuccessFactors
+│   │   │   ├── talentrecruit.py  # KPMG India encrypted TalentRecruit API
+│   │   │   └── workday.py        # PwC India Workday CXS API
 │   │   ├── config.py             # environment settings
 │   │   ├── database.py           # engine, sessions, init retries
 │   │   ├── models.py             # Job + ScrapeRun
@@ -432,9 +484,18 @@ you run it**:
   public and its robots file allows crawlers. Cadence allows job pages (the
   disallowed `search-index.json` is not used). Concentrix allows the search page
   but asks for a 10-second crawl delay; the scraper makes a single request.
-- **EXL / Capgemini India.** EXL’s Oracle site returns 404 for robots.txt, which
-  RFC 9309 treats as “allow”; Capgemini India reuses the explicitly allowed
-  JobStream API with `country_code=in-en`.
+- **EXL / Capgemini India / KPMG Global Services.** EXL’s Oracle site returns 404
+  for robots.txt, which RFC 9309 treats as “allow”; Capgemini India reuses the
+  explicitly allowed JobStream API with `country_code=in-en`; KPMG Global
+  Services uses the same Oracle API shape on its public `CX_3` site.
+- **KPMG India.** The public TalentRecruit career page returns encrypted JSON
+  that the browser decrypts with a client key embedded in its own JavaScript.
+  RoleRadar performs the same decryption locally; no login or private endpoint
+  is used.
+- **McKinsey / PwC India.** McKinsey’s public search endpoint and PwC’s Workday
+  CXS API are the same endpoints their public career pages use. Workday list
+  pagination is capped by the scraper’s page limit; the India location facet is
+  discovered from public facet metadata.
 - **Attribution.** Every listing links to the original posting. RoleRadar is not
   affiliated with any of the companies, and company names/trademarks belong to
   their owners.
@@ -443,6 +504,11 @@ you run it**:
   content to `ollama.com`. Review that provider's terms and use a local model if
   the content must stay on your machine. Enabling the fallback does not change
   robots.txt behaviour or add extra page fetches.
+- **Fit scoring privacy.** `python -m app.cli score` sends the resume and job
+  descriptions to the configured `FIT_MODEL`. The default
+  `gpt-oss:120b-cloud` forwards that text to `ollama.com`; switch to
+  `mistral:7b-instruct` or `llama3.2:3b` for fully local scoring. The resume file
+  lives under the git-ignored `data/` directory and is mounted read-only.
 - **Personal use.** A public deployment that republishes full descriptions may
   raise copyright or terms-of-service questions. Review before exposing it.
 
@@ -457,7 +523,9 @@ you run it**:
 | Port 5100/5200 already in use | Change `FRONTEND_HOST_PORT` / `API_HOST_PORT` in `.env` and re-run Compose |
 | Scraper returns 403/429 | The site may be throttling or blocking. Raise `HTTP_RATE_LIMIT_SECONDS`; do not disable robots casually |
 | India source has fewer jobs than the site | Filled/closing requisitions still appear in SuccessFactors search but are skipped when the detail page says the position is filled |
-| First full sweep takes hours | Expected across 14 sources; run a capped smoke test with `python -m app.cli scrape --sources amazon,microsoft --limit 5` |
+| First full sweep takes hours | Expected across 18 sources; run a capped smoke test with `python -m app.cli scrape --sources amazon,microsoft --limit 5` |
+| Fit scores are missing | Run `docker compose exec scheduler python -m app.cli score --limit 300`; check `RESUME_PATH` and `docker compose exec scheduler ls -l /app/data` |
+| Fit scoring is slow | The default cloud model needs network access; on a CPU-only host use the cloud tag or accept that local 7B scoring takes minutes per job |
 | AI fallback never runs | Set `AI_FALLBACK_ENABLED=true` and recreate the scheduler. `docker compose exec scheduler python -c "import urllib.request; print(urllib.request.urlopen('http://host.docker.internal:11434/api/tags', timeout=5).status)"` should print `200` |
 | Ollama model not found | Run `ollama list`; set `OLLAMA_MODEL` to an installed tag. Cloud tags such as `gpt-oss:120b-cloud` require a signed-in Ollama account |
 | Scheduler misses a run | Runs are coalesced with a 1-hour misfire grace; a full sweep can exceed 6 hours, so the next run starts after it finishes |

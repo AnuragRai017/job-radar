@@ -181,3 +181,33 @@ def test_cors_allows_configured_origin(client) -> None:
     response = client.get("/api/jobs", headers={"Origin": "http://127.0.0.1:4321"})
     assert response.status_code == 200
     assert response.headers.get("access-control-allow-origin") == "http://127.0.0.1:4321"
+
+
+def test_fit_score_filter_sort_and_detail(client, db) -> None:
+    _seed(db)
+    job = db.query(Job).filter(Job.external_id == "g1").one()
+    job.fit_score = 82
+    job.fit_verdict = "strong"
+    job.fit_method = "llm"
+    job.fit_model = "mistral:7b-instruct"
+    job.fit_reasons = ["Matches Python and BigQuery.", "India location."]
+    job.fit_gaps = ["No production LLM experience listed."]
+    db.commit()
+
+    filtered = client.get("/api/jobs", params={"min_fit": 70, "sort": "fit"}).json()
+    assert filtered["total"] == 1
+    assert filtered["items"][0]["external_id"] == "g1"
+    assert filtered["items"][0]["fit_score"] == 82
+    assert filtered["items"][0]["fit_verdict"] == "strong"
+
+    detail = client.get(f"/api/jobs/{job.id}").json()
+    assert detail["fit_method"] == "llm"
+    assert detail["fit_model"] == "mistral:7b-instruct"
+    assert detail["fit_reasons"] == [
+        "Matches Python and BigQuery.",
+        "India location.",
+    ]
+
+    stats = client.get("/api/stats").json()
+    assert stats["fit_scored_jobs"] == 1
+    assert stats["fit_best_score"] == 82

@@ -35,6 +35,14 @@
   --company-medallion: #6d28d9;
   --company-deloitte-india: #5f8f1f;
   --company-capgemini-india: #00629b;
+  --company-kpmg: #1e49e2;
+  --company-kpmg-india: #00338d;
+  --company-mckinsey: #051c2c;
+  --company-pwc: #d04a02;
+
+  --fit-strong: #0f6b4f;
+  --fit-possible: #8a6d00;
+  --fit-weak: #6b7074;
 
   --font-sans: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont,
     "Helvetica Neue", Arial, sans-serif;
@@ -81,6 +89,13 @@
     --company-medallion: #a78bfa;
     --company-deloitte-india: #8fbf4a;
     --company-capgemini-india: #5aa9d6;
+    --company-kpmg: #7f9bff;
+    --company-kpmg-india: #6f9be8;
+    --company-mckinsey: #8ea6b8;
+    --company-pwc: #f08a4b;
+    --fit-strong: #79dcb6;
+    --fit-possible: #e0c45a;
+    --fit-weak: #9aa39a;
     --shadow-card: 0 1px 1px rgba(0, 0, 0, 0.2), 0 10px 30px -20px rgba(0, 0, 0, 0.8);
     --shadow-lift: 0 2px 2px rgba(0, 0, 0, 0.25), 0 20px 48px -24px rgba(0, 0, 0, 0.9);
   }
@@ -784,6 +799,35 @@ ol {
   background: var(--line-strong);
 }
 
+.fit-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.fit-badge--strong {
+  color: var(--fit-strong);
+  background: color-mix(in srgb, var(--fit-strong) 11%, transparent);
+}
+
+.fit-badge--possible {
+  color: var(--fit-possible);
+  background: color-mix(in srgb, var(--fit-possible) 12%, transparent);
+}
+
+.fit-badge--weak {
+  color: var(--fit-weak);
+  background: color-mix(in srgb, var(--fit-weak) 10%, transparent);
+}
+
 .job-title {
   margin-top: 5px;
   font-size: 1.09rem;
@@ -1415,6 +1459,147 @@ ol {
 
 .snapshot-row dd a {
   color: var(--accent);
+}
+
+.fit-card {
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--fit-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.fit-card.is-possible {
+  border-top-color: var(--fit-possible);
+}
+
+.fit-card.is-weak {
+  border-top-color: var(--fit-weak);
+}
+
+.fit-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fit-card-head h2 {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.fit-score {
+  font-family: var(--font-display);
+  font-size: 2.9rem;
+  line-height: 0.9;
+  color: var(--ink);
+}
+
+.fit-score small {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--faint);
+}
+
+.fit-verdict {
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fit-strong);
+}
+
+.fit-card.is-possible .fit-verdict {
+  color: var(--fit-possible);
+}
+
+.fit-card.is-weak .fit-verdict {
+  color: var(--fit-weak);
+}
+
+.fit-meter {
+  height: 6px;
+  margin: 14px 0 16px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.fit-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--fit-strong);
+}
+
+.fit-card.is-possible .fit-meter span {
+  background: var(--fit-possible);
+}
+
+.fit-card.is-weak .fit-meter span {
+  background: var(--fit-weak);
+}
+
+.fit-subhead {
+  margin-top: 12px;
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.fit-reasons,
+.fit-gaps {
+  display: grid;
+  gap: 6px;
+  margin: 7px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fit-reasons li,
+.fit-gaps li {
+  position: relative;
+  padding-left: 13px;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.fit-reasons li::before,
+.fit-gaps li::before {
+  position: absolute;
+  left: 0;
+  font-weight: 700;
+}
+
+.fit-reasons li::before {
+  content: "+";
+  color: var(--fit-strong);
+}
+
+.fit-gaps li::before {
+  content: "–";
+  color: var(--danger);
+}
+
+.fit-method {
+  margin-top: 13px;
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  letter-spacing: 0.05em;
+  color: var(--faint);
+  text-transform: uppercase;
 }
 
 .notice {

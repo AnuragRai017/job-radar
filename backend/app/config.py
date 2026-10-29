@@ -36,8 +36,8 @@ class Settings(BaseSettings):
 
     # Scheduling
     scrape_sources: str = (
-        "amazon,concentrix,microsoft,hsbc,medallion,cadence,"
-        "capgemini_india,exl,deloitte_india,ey,"
+        "amazon,concentrix,mckinsey,kpmg_india,microsoft,hsbc,medallion,cadence,"
+        "kpmg_gs,pwc_india,capgemini_india,exl,deloitte_india,ey,"
         "jpmorgan,deloitte,capgemini,google"
     )
     scrape_interval_hours: float = 6.0
@@ -66,6 +66,19 @@ class Settings(BaseSettings):
     ai_fallback_max_calls: int = 10
     ai_fallback_max_input_chars: int = 60_000
 
+    # Resume fit scoring (local Ollama model, no cloud calls)
+    fit_score_enabled: bool = True
+    fit_llm_enabled: bool = True
+    fit_score_after_scrape: bool = False
+    resume_path: str = str(BASE_DIR.parent / "data" / "Anurag_Rai_Resume.docx")
+    fit_model: str = "gpt-oss:120b-cloud"
+    fit_max_jobs: int = 120
+    fit_min_heuristic: int = 30
+    fit_llm_timeout_seconds: float = 120.0
+    fit_llm_num_ctx: int = 8_192
+    fit_run_timeout_seconds: float = 3_600.0
+    fit_description_chars: int = 6_000
+
     @field_validator("scrape_interval_hours")
     @classmethod
     def _positive_interval(cls, value: float) -> float:
@@ -80,26 +93,49 @@ class Settings(BaseSettings):
             raise ValueError("HTTP timing values must be greater than zero")
         return value
 
-    @field_validator("ollama_timeout_seconds", "ai_fallback_max_input_chars")
+    @field_validator(
+        "ollama_timeout_seconds",
+        "ai_fallback_max_input_chars",
+        "fit_llm_timeout_seconds",
+        "fit_run_timeout_seconds",
+        "fit_description_chars",
+    )
     @classmethod
     def _positive_ai_values(cls, value: float) -> float:
         if value <= 0:
             raise ValueError("AI timeout and input-size values must be greater than zero")
         return value
 
-    @field_validator("ollama_num_ctx", "ai_fallback_max_calls")
+    @field_validator(
+        "ollama_num_ctx", "ai_fallback_max_calls", "fit_max_jobs", "fit_llm_num_ctx"
+    )
     @classmethod
     def _positive_ai_counts(cls, value: int) -> int:
         if value <= 0:
             raise ValueError("AI context and call limits must be greater than zero")
         return value
 
-    @field_validator("ollama_model")
+    @field_validator("fit_min_heuristic")
+    @classmethod
+    def _valid_fit_threshold(cls, value: int) -> int:
+        if value < 0 or value > 100:
+            raise ValueError("FIT_MIN_HEURISTIC must be between 0 and 100")
+        return value
+
+    @field_validator("ollama_model", "fit_model")
     @classmethod
     def _nonempty_model(cls, value: str) -> str:
         value = value.strip()
         if not value:
-            raise ValueError("OLLAMA_MODEL must not be empty")
+            raise ValueError("Model names must not be empty")
+        return value
+
+    @field_validator("resume_path")
+    @classmethod
+    def _nonempty_resume_path(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("RESUME_PATH must not be empty")
         return value
 
     @field_validator("ollama_base_url")

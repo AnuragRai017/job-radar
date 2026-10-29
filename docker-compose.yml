@@ -11,7 +11,7 @@ x-backend-common: &backend-common
 
     CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5100,http://127.0.0.1:5100}
 
-    SCRAPE_SOURCES: ${SCRAPE_SOURCES:-amazon,concentrix,microsoft,hsbc,medallion,cadence,capgemini_india,exl,deloitte_india,ey,jpmorgan,deloitte,capgemini,google}
+    SCRAPE_SOURCES: ${SCRAPE_SOURCES:-amazon,concentrix,mckinsey,kpmg_india,microsoft,hsbc,medallion,cadence,kpmg_gs,pwc_india,capgemini_india,exl,deloitte_india,ey,jpmorgan,deloitte,capgemini,google}
     SCRAPE_INTERVAL_HOURS: ${SCRAPE_INTERVAL_HOURS:-6}
     SCRAPE_ON_STARTUP: ${SCRAPE_ON_STARTUP:-true}
     SCRAPE_MAX_JOBS_PER_SOURCE: ${SCRAPE_MAX_JOBS_PER_SOURCE:-0}
@@ -36,6 +36,20 @@ x-backend-common: &backend-common
     OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-32768}
     AI_FALLBACK_MAX_CALLS: ${AI_FALLBACK_MAX_CALLS:-10}
     AI_FALLBACK_MAX_INPUT_CHARS: ${AI_FALLBACK_MAX_INPUT_CHARS:-60000}
+
+    FIT_SCORE_ENABLED: ${FIT_SCORE_ENABLED:-true}
+    FIT_LLM_ENABLED: ${FIT_LLM_ENABLED:-true}
+    FIT_SCORE_AFTER_SCRAPE: ${FIT_SCORE_AFTER_SCRAPE:-false}
+    RESUME_PATH: ${RESUME_PATH:-/app/data/Anurag_Rai_Resume.docx}
+    FIT_MODEL: ${FIT_MODEL:-gpt-oss:120b-cloud}
+    FIT_MAX_JOBS: ${FIT_MAX_JOBS:-300}
+    FIT_MIN_HEURISTIC: ${FIT_MIN_HEURISTIC:-30}
+    FIT_LLM_TIMEOUT_SECONDS: ${FIT_LLM_TIMEOUT_SECONDS:-120}
+    FIT_LLM_NUM_CTX: ${FIT_LLM_NUM_CTX:-8192}
+    FIT_RUN_TIMEOUT_SECONDS: ${FIT_RUN_TIMEOUT_SECONDS:-3600}
+    FIT_DESCRIPTION_CHARS: ${FIT_DESCRIPTION_CHARS:-6000}
+  volumes:
+    - ./data:/app/data:ro
   init: true
   restart: unless-stopped
   extra_hosts:

@@ -26,6 +26,20 @@ def run_scrape_job() -> None:
     except Exception:  # noqa: BLE001 - scheduler must survive a failed run
         logger.exception("Scheduled scrape run crashed; scheduler will keep running")
 
+    if settings.fit_score_enabled and settings.fit_score_after_scrape:
+        try:
+            from app.fit.scoring import run_fit_scoring
+
+            summary = run_fit_scoring(limit=settings.fit_max_jobs)
+            logger.info(
+                "Post-scrape fit scoring: %d heuristic, %d LLM, %.1fs",
+                summary.heuristic_saved,
+                summary.llm_scored,
+                summary.duration_seconds,
+            )
+        except Exception:  # noqa: BLE001 - fit scoring must not stop the scheduler
+            logger.exception("Post-scrape fit scoring failed; scheduler will keep running")
+
 
 def _handle_signal(signum, _frame) -> None:  # type: ignore[no-untyped-def]
     logger.info("Received signal %s; shutting down scheduler", signum)

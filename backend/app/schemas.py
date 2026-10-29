@@ -23,6 +23,8 @@ class JobSummary(ApiModel):
     posted_date: date | None = None
     excerpt: str = ""
     is_active: bool = True
+    fit_score: int | None = None
+    fit_verdict: str | None = None
     scraped_at: datetime
 
     @field_serializer("scraped_at")
@@ -35,10 +37,15 @@ class JobDetail(JobSummary):
     description_text: str
     first_seen_at: datetime
     last_seen_at: datetime
+    fit_reasons: list[str] = Field(default_factory=list)
+    fit_gaps: list[str] = Field(default_factory=list)
+    fit_method: str | None = None
+    fit_model: str | None = None
+    fit_scored_at: datetime | None = None
 
-    @field_serializer("first_seen_at", "last_seen_at")
-    def _serialize_dates(self, value: datetime) -> str | None:
-        return iso_utc(value)
+    @field_serializer("first_seen_at", "last_seen_at", "fit_scored_at")
+    def _serialize_dates(self, value: datetime | None) -> str | None:
+        return iso_utc(value) if value is not None else None
 
 
 class JobListResponse(ApiModel):
@@ -75,6 +82,8 @@ class RunSummary(ApiModel):
 class StatsResponse(ApiModel):
     total_jobs: int
     active_jobs: int
+    fit_scored_jobs: int = 0
+    fit_best_score: int | None = None
     companies: list[CompanyStat]
     last_scrape_at: datetime | None = None
     last_successful_scrape_at: datetime | None = None

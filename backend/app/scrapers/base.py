@@ -263,9 +263,49 @@ class HttpClient:
         headers: dict[str, str] | None = None,
         fallback_html: bool = False,
     ) -> HttpResponse:
+        return await self._request(
+            "GET",
+            url,
+            expect_json=expect_json,
+            enforce_robots=enforce_robots,
+            headers=headers,
+            fallback_html=fallback_html,
+        )
+
+    async def post(
+        self,
+        url: str,
+        *,
+        json: object | None = None,
+        expect_json: bool = True,
+        enforce_robots: bool | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> HttpResponse:
+        return await self._request(
+            "POST",
+            url,
+            expect_json=expect_json,
+            enforce_robots=enforce_robots,
+            headers=headers,
+            json_body=json,
+        )
+
+    async def _request(
+        self,
+        method: str,
+        url: str,
+        *,
+        expect_json: bool = False,
+        enforce_robots: bool | None = None,
+        headers: dict[str, str] | None = None,
+        fallback_html: bool = False,
+        json_body: object | None = None,
+    ) -> HttpResponse:
         if enforce_robots is None:
             enforce_robots = settings.respect_robots
         request_headers = self._headers(expect_json=expect_json, extra=headers)
+        if json_body is not None:
+            request_headers.setdefault("Content-Type", "application/json")
 
         if enforce_robots:
             allowed = await self.robots.is_allowed(
@@ -289,9 +329,11 @@ class HttpClient:
             await self.limiter.wait(host)
             started = time.monotonic()
             try:
-                response = await self.session.get(
+                response = await self.session.request(
+                    method,
                     url,
                     headers=request_headers,
+                    json=json_body,
                     impersonate=self.profile.impersonate,
                     timeout=settings.http_timeout_seconds,
                     allow_redirects=True,

@@ -28,6 +28,7 @@ class Job(Base):
         UniqueConstraint("source", "external_id", name="uq_jobs_source_external_id"),
         Index("ix_jobs_company_posted_date", "company", "posted_date"),
         Index("ix_jobs_active_posted_date", "is_active", "posted_date"),
+        Index("ix_jobs_fit_score", "fit_score"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -43,6 +44,16 @@ class Job(Base):
     posted_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
 
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
+    fit_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fit_verdict: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    fit_reasons: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    fit_gaps: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    fit_method: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    fit_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    fit_scored_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    fit_resume_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     scraped_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

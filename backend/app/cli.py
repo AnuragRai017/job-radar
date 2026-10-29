@@ -44,6 +44,25 @@ def main() -> None:
 
     subparsers.add_parser("stats", help="Show database counts and the latest run")
 
+    score = subparsers.add_parser("score", help="Score active jobs against the resume")
+    score.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Maximum LLM-scored jobs (default: FIT_MAX_JOBS)",
+    )
+    score.add_argument(
+        "--no-llm",
+        action="store_true",
+        help="Only compute deterministic heuristic scores",
+    )
+    score.add_argument(
+        "--force",
+        action="store_true",
+        help="Rescore jobs even when the resume and LLM result are unchanged",
+    )
+    score.add_argument("--resume", default=None, help="Override RESUME_PATH")
+
     args = parser.parse_args()
     configure_logging()
     init_db()
@@ -58,10 +77,43 @@ def main() -> None:
         run_scrape(options)
         return
 
+    if args.command == "score":
+        from app.fit.scoring import run_fit_scoring
+
+        try:
+            summary = run_fit_scoring(
+                limit=args.limit,
+                use_llm=not args.no_llm,
+                force=args.force,
+                resume_path=args.resume,
+            )
+        except (FileNotFoundError, ValueError) as exc:
+            raise SystemExit(str(exc)) from exc
+        print(
+            f"Scored {summary.scanned} active jobs: "
+            f"{summary.heuristic_saved} heuristic, {summary.llm_scored} LLM "
+            f"({summary.llm_calls} calls, {summary.llm_failures} failures) "
+            f"in {summary.duration_seconds:.1f}s"
+        )
+        if summary.top:
+            print("\nTop matches:")
+            for item in summary.top:
+                print(
+                    f"  {item.score:3d}  {item.company} | {item.title} | "
+                    f"{item.location or 'Location not listed'} [{item.method}]"
+                )
+        return
+
     with session_scope() as db:
         total = db.execute(select(func.count()).select_from(Job)).scalar_one()
         active = db.execute(
             select(func.count()).select_from(Job).where(Job.is_active.is_(True))
+        ).scalar_one()
+        scored = db.execute(
+            select(func.count(Job.fit_score)).where(Job.is_active.is_(True))
+        ).scalar_one()
+        best_fit = db.execute(
+            select(func.max(Job.fit_score)).where(Job.is_active.is_(True))
         ).scalar_one()
         rows = db.execute(
             select(Job.company, func.count(Job.id))
@@ -75,6 +127,7 @@ def main() -> None:
 
     print(f"Database: {settings.database_url}")
     print(f"Jobs: {active} active / {total} total")
+    print(f"Fit scored: {scored} active jobs (best: {best_fit if best_fit is not None else '—'})")
     for company, count in rows:
         print(f"  {company}: {count}")
     if latest is not None:
