@@ -1,0 +1,17 @@
+name = "job-radar-find"
+main = "cloudflare/worker.js"
+compatibility_date = "2026-10-30"
+
+# Build the Astro site before Wrangler looks for static assets.
+[build]
+command = "npm run build"
+
+[assets]
+directory = "./frontend/dist"
+binding = "ASSETS"
+run_worker_first = true
+
+[vars]
+# The Worker proxies /api and /health to this running API.
+# Update this if the temporary tunnel URL changes.
+API_ORIGIN = "https://extras-gray-que-states.trycloudflare.com"

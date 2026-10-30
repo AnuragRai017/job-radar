@@ -122,6 +122,23 @@ The same field is returned by `/api/jobs` and `/api/jobs/{id}` as `job_code`.
 Re-run scoring after a sweep, or set `FIT_SCORE_AFTER_SCRAPE=true` to score new
 jobs automatically after each scheduled sweep.
 
+## Cloudflare Workers deployment
+
+Cloudflare Workers cannot run the Python/FastAPI/Postgres/scheduler stack. The
+included `wrangler.toml` deploys the **Astro frontend** as Workers static assets
+and proxies `/api/*` and `/health` to a running API:
+
+```bash
+npm run build
+npx wrangler deploy
+```
+
+Set `API_ORIGIN` in `wrangler.toml` (or the Worker dashboard) to the public API,
+for example the Cloudflare tunnel URL. The frontend keeps using same-origin
+`/api` paths, so no CORS changes are needed. This gives a stable
+`*.workers.dev` URL for the UI while the API, PostgreSQL, and scheduler continue
+to run on the Docker host.
+
 ## Quick start (Docker)
 
 Requirements: Docker Engine/Desktop with Compose v2, and a network connection.
