@@ -193,6 +193,7 @@ def test_needs_detail_skips_unchanged_jobs_with_descriptions() -> None:
             location="New York, NY",
             posted_date=date(2025, 1, 1),
             has_description=True,
+            job_code="1",
         )
     }
     ctx = ScrapeContext(known=known)

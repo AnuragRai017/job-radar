@@ -243,6 +243,11 @@ class HSBCScraper(EightfoldScraper):
         external_id = str(payload.get("id") or position.get("id") or "")
         if not external_id:
             raise ValueError("detail payload has no id")
+        job_code = str(
+            payload.get("display_job_id")
+            or payload.get("ats_job_id")
+            or external_id
+        )
         title = clean_text(payload.get("name"), max_length=500) or clean_text(
             position.get("name"), max_length=500
         )
@@ -258,6 +263,7 @@ class HSBCScraper(EightfoldScraper):
             source=self.source,
             company=self.company,
             external_id=external_id,
+            job_code=job_code,
             title=title or "Untitled role",
             location=location,
             description_html=description,
@@ -307,6 +313,9 @@ class MicrosoftScraper(EightfoldScraper):
         external_id = str(data.get("id") or position.get("id") or "")
         if not external_id:
             raise ValueError("detail payload has no id")
+        job_code = str(
+            data.get("displayJobId") or data.get("atsJobId") or external_id
+        )
         title = clean_text(data.get("name"), max_length=500) or clean_text(
             position.get("name"), max_length=500
         )
@@ -322,6 +331,7 @@ class MicrosoftScraper(EightfoldScraper):
             source=self.source,
             company=self.company,
             external_id=external_id,
+            job_code=job_code,
             title=title or "Untitled role",
             location=location,
             description_html=description,

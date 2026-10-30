@@ -13,6 +13,7 @@ class KnownJob:
     location: str
     posted_date: date | None
     has_description: bool
+    job_code: str = ""
 
 
 @dataclass(slots=True)
@@ -25,6 +26,7 @@ class JobRecord:
     description_html: str
     apply_url: str
     posted_date: date | None = None
+    job_code: str = ""
 
 
 @dataclass
@@ -81,6 +83,9 @@ class BaseScraper(ABC):
     ) -> bool:
         known = ctx.known.get(external_id)
         if known is None or not known.has_description:
+            return True
+        # Refresh once to populate the native referral ID for older rows.
+        if not known.job_code:
             return True
         if known.title.strip() != title.strip():
             return True

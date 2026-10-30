@@ -88,6 +88,7 @@ def test_list_jobs_defaults_to_active_and_newest_first(client, db) -> None:
     assert body["page"] == 1
     assert body["pages"] == 1
     assert [item["external_id"] for item in body["items"]] == ["g1", "g2", "d1"]
+    assert body["items"][0]["job_code"] == "g1"
     assert body["items"][0]["excerpt"] == "Build search systems."
     assert body["items"][0]["posted_date"] == "2025-03-01"
 
@@ -148,6 +149,7 @@ def test_job_detail_and_404(client, db) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["title"] == "Software Engineer"
+    assert body["job_code"] == "g1"
     assert body["description_html"] == "<p>Build <strong>search</strong> systems.</p>"
     assert body["description_text"] == "Build search systems."
     assert body["first_seen_at"].endswith("Z")

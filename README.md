@@ -94,6 +94,27 @@ The UI exposes **Minimum fit** (50/60/70/80+) and **Best fit first** sorting.
 Each detail page shows the score, verdict, reasons, gaps, and whether the score
 came from the local heuristic or the model.
 
+### Job IDs for referrals
+
+Every listing carries a **Job ID for referrals** card on its detail page, with a
+copy button. `job_code` is the employer's native requisition ID where one is
+available:
+
+| Source | Referral ID |
+| --- | --- |
+| Amazon | iCIMS job ID (e.g. `10593269`) |
+| Capgemini | Requisition ID from the apply URL (e.g. `1444351833`) |
+| Microsoft | `displayJobId` (e.g. `200044512`) |
+| HSBC | `display_job_id` (e.g. `65139`) |
+| Deloitte / EY / EXL / JPMorgan / KPMG GS | Requisition ID |
+| KPMG India | Job `code` (e.g. `5257`) |
+| McKinsey | Job ID |
+| PwC | Workday `jobReqId` |
+| Medallion / Concentrix / Google | Native board/requisition ID |
+| Cadence | Public role slug |
+
+The same field is returned by `/api/jobs` and `/api/jobs/{id}` as `job_code`.
+
 > **Privacy:** the default `FIT_MODEL=gpt-oss:120b-cloud` forwards resume and job
 > text to `ollama.com`. Set `FIT_MODEL=mistral:7b-instruct` (or another installed
 > local tag) for fully local scoring; CPU-only hosts are much slower.
@@ -181,8 +202,8 @@ Interactive docs: `/api/docs`. All responses are JSON; times are ISO-8601 UTC.
 
 | Endpoint | Description |
 | --- | --- |
-| `GET /api/jobs` | Paginated, active jobs. Query: `page`, `page_size` (1–100), `company`, `location`, `keyword`, `include_inactive`, `min_fit` (0–100), `sort` (`newest` or `fit`) |
-| `GET /api/jobs/{id}` | Full description, fit score/reasons/gaps, and provenance for one job |
+| `GET /api/jobs` | Paginated, active jobs with `job_code`. Query: `page`, `page_size` (1–100), `company`, `location`, `keyword`, `include_inactive`, `min_fit` (0–100), `sort` (`newest` or `fit`) |
+| `GET /api/jobs/{id}` | Full description, `job_code`, fit score/reasons/gaps, and provenance for one job |
 | `GET /api/stats` | Counts by company, fit coverage, latest run, last successful sweep |
 | `GET /health` | API + database health and last scrape time |
 

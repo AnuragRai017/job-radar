@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
 from typing import Any
 from urllib.parse import urlencode
@@ -127,10 +128,18 @@ class AmazonScraper(BaseScraper):
         apply_url = safe_http_url(f"{JOB_ROOT}{job_path}" if job_path else "", "")
         posted = _parse_amazon_date(item.get("posted_date"))
 
+        # Amazon's referral ID is the numeric iCIMS ID, not the UUID used by
+        # the search API for deduplication.
+        job_code = str(item.get("id_icims") or "").strip()
+        if not job_code:
+            match = re.search(r"/jobs/(\d+)", job_path)
+            job_code = match.group(1) if match else external_id
+
         return JobRecord(
             source=self.source,
             company=self.company,
             external_id=external_id,
+            job_code=job_code,
             title=title,
             location=location,
             description_html="\n".join(parts),

@@ -17,6 +17,7 @@ class JobSummary(ApiModel):
     source: str
     company: str
     external_id: str
+    job_code: str = ""
     title: str
     location: str
     apply_url: str

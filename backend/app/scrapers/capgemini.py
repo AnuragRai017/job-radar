@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html as html_module
 import math
+import re
 from typing import Any
 from urllib.parse import quote
 
@@ -158,17 +159,24 @@ class CapgeminiScraper(BaseScraper):
             payload.get("apply_url"),
             safe_http_url(payload.get("canonical_url"), str(item.get("html_url") or "")),
         )
+        job_code = self._job_code(apply_url, external_id)
 
         return JobRecord(
             source=self.source,
             company=self.company,
             external_id=external_id,
+            job_code=job_code,
             title=title or "Untitled role",
             location=location,
             description_html=description,
             apply_url=apply_url,
             posted_date=posted,
         )
+
+    @staticmethod
+    def _job_code(apply_url: str, external_id: str) -> str:
+        match = re.search(r"/job/[^/]+/(\d+)", apply_url or "")
+        return match.group(1) if match else external_id
 
     @staticmethod
     def _description_html(payload: dict[str, Any], title: str) -> str:

@@ -91,6 +91,13 @@ def test_capgemini_india_uses_country_filter() -> None:
     assert "page=2" in url
     assert "country_code=in-en" in url
     assert scraper._detail_url("123-en_GB+test").endswith("/123-en_GB+test")
+    assert (
+        scraper._job_code(
+            "https://careers.capgemini.com/job/Bangalore-Data-Engineer/1444351833/?x=1",
+            "123-en_GB+test",
+        )
+        == "1444351833"
+    )
 
 
 def test_exl_uses_oracle_cx2_site() -> None:
@@ -138,11 +145,13 @@ def test_eightfold_parses_hsbc_and_microsoft_payloads() -> None:
             "location": "Pune, India",
             "job_description": "<p>Build systems.</p>",
             "t_create": 1735689600,
+            "display_job_id": 65139,
             "canonicalPositionUrl": "https://portal.careers.hsbc.com/careers/job/1",
         },
         positions[0],
     )
     assert job.external_id == "1"
+    assert job.job_code == "65139"
     assert job.location == "Pune, India"
     assert job.posted_date == date(2025, 1, 1)
     assert job.description_html == "<p>Build systems.</p>"
@@ -155,12 +164,14 @@ def test_eightfold_parses_hsbc_and_microsoft_payloads() -> None:
                 "location": "Hyderabad, India",
                 "jobDescription": "<p>Ship products.</p>",
                 "postedTs": 1735689600,
+                "displayJobId": 200044512,
                 "publicUrl": "https://apply.careers.microsoft.com/careers/job/2",
             }
         },
         positions[0],
     )
     assert job.external_id == "2"
+    assert job.job_code == "200044512"
     assert job.title == "Developer"
     assert job.posted_date == date(2025, 1, 1)
     assert job.apply_url.endswith("/careers/job/2")
@@ -188,6 +199,7 @@ def test_amazon_parses_india_job_and_date() -> None:
     job = AmazonScraper()._parse_job(
         {
             "id": "abc-123",
+            "id_icims": "10592064",
             "title": "Software Engineer",
             "location": "IN, KA, Bengaluru",
             "posted_date": "October 29, 2026",
@@ -199,6 +211,7 @@ def test_amazon_parses_india_job_and_date() -> None:
     )
     assert job is not None
     assert job.external_id == "abc-123"
+    assert job.job_code == "10592064"
     assert job.location == "IN, KA, Bengaluru"
     assert job.apply_url == "https://www.amazon.jobs/en/jobs/10592064/software-engineer"
     assert job.posted_date == date(2026, 10, 29)

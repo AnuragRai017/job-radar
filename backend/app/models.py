@@ -35,6 +35,9 @@ class Job(Base):
     source: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     company: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
     external_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    job_code: Mapped[str] = mapped_column(
+        String(160), nullable=False, default="", index=True
+    )
 
     title: Mapped[str] = mapped_column(String(512), nullable=False)
     location: Mapped[str] = mapped_column(String(1024), nullable=False, default="")

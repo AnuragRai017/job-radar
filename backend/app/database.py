@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from collections.abc import Generator
 from contextlib import contextmanager
@@ -75,7 +76,8 @@ def session_scope() -> Generator[Session, None, None]:
         db.close()
 
 
-_FIT_COLUMNS = {
+_ADDITIVE_COLUMNS = {
+    "job_code": "VARCHAR(160)",
     "fit_score": "INTEGER",
     "fit_verdict": "VARCHAR(16)",
     "fit_reasons": "JSON",
@@ -87,13 +89,15 @@ _FIT_COLUMNS = {
 }
 
 
-def _ensure_fit_columns() -> None:
-    """Add fit-scoring columns to an existing jobs table (additive migration)."""
+def _ensure_additive_columns() -> None:
+    """Add newer columns to an existing jobs table (additive migration)."""
     inspector = inspect(engine)
     if "jobs" not in inspector.get_table_names():
         return
     existing = {column["name"] for column in inspector.get_columns("jobs")}
-    missing = {name: ddl for name, ddl in _FIT_COLUMNS.items() if name not in existing}
+    missing = {
+        name: ddl for name, ddl in _ADDITIVE_COLUMNS.items() if name not in existing
+    }
     if not missing:
         return
 
@@ -110,7 +114,51 @@ def _ensure_fit_columns() -> None:
         connection.execute(
             text("CREATE INDEX IF NOT EXISTS ix_jobs_fit_score ON jobs (fit_score)")
         )
-    logger.info("Added fit-scoring columns to jobs: %s", ", ".join(sorted(missing)))
+        connection.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_jobs_job_code ON jobs (job_code)")
+        )
+    logger.info("Added columns to jobs: %s", ", ".join(sorted(missing)))
+
+
+def _backfill_job_codes() -> None:
+    """Fill native referral IDs where they can be derived without a detail fetch.
+
+    Microsoft and HSBC use Eightfold's numeric display ID, which is only in the
+    detail payload. Leave those empty so the next scrape refreshes the detail
+    once; all other sources either already expose the native ID as external_id
+    or carry it in the apply URL.
+    """
+    with engine.begin() as connection:
+        rows = connection.execute(
+            text(
+                "SELECT id, source, external_id, apply_url FROM jobs "
+                "WHERE job_code IS NULL OR job_code = ''"
+            )
+        ).fetchall()
+        updated = 0
+        for row in rows:
+            source = (row.source or "").lower()
+            external_id = (row.external_id or "").strip()
+            apply_url = row.apply_url or ""
+            code = ""
+            if source == "amazon":
+                match = re.search(r"/jobs/(\d+)", apply_url)
+                code = match.group(1) if match else ""
+            elif source.startswith("capgemini"):
+                match = re.search(r"/job/[^/]+/(\d+)", apply_url)
+                code = match.group(1) if match else ""
+            elif source in {"microsoft", "hsbc"}:
+                code = ""
+            else:
+                code = external_id
+            if code:
+                connection.execute(
+                    text("UPDATE jobs SET job_code = :code WHERE id = :id"),
+                    {"code": code[:160], "id": row.id},
+                )
+                updated += 1
+        if updated:
+            logger.info("Backfilled job_code for %d jobs", updated)
 
 
 def init_db(max_attempts: int = 12, delay_seconds: float = 2.0) -> None:
@@ -119,7 +167,8 @@ def init_db(max_attempts: int = 12, delay_seconds: float = 2.0) -> None:
     for attempt in range(1, max_attempts + 1):
         try:
             Base.metadata.create_all(bind=engine)
-            _ensure_fit_columns()
+            _ensure_additive_columns()
+            _backfill_job_codes()
             logger.info("Database ready (%s)", engine.url.render_as_string(hide_password=True))
             return
         except Exception as exc:  # noqa: BLE001 - surfaced after retries

@@ -216,6 +216,7 @@ class TalentRecruitScraper(BaseScraper):
             source=self.source,
             company=self.company,
             external_id=external_id,
+            job_code=external_id,
             title=title,
             location=location,
             description_html="\n".join(description_parts),

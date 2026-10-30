@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 _UPSERT_COLUMNS = (
     "company",
+    "job_code",
     "title",
     "location",
     "description_html",
@@ -35,6 +36,7 @@ def load_known_jobs(db: Session, source: str) -> dict[str, KnownJob]:
     rows = db.execute(
         select(
             Job.external_id,
+            Job.job_code,
             Job.title,
             Job.location,
             Job.posted_date,
@@ -47,6 +49,7 @@ def load_known_jobs(db: Session, source: str) -> dict[str, KnownJob]:
             location=row.location or "",
             posted_date=row.posted_date,
             has_description=bool(row.has_description),
+            job_code=row.job_code or "",
         )
         for row in rows
     }
@@ -58,6 +61,7 @@ def _row_for(record: JobRecord, now: datetime) -> dict:
         "source": record.source,
         "company": record.company,
         "external_id": record.external_id,
+        "job_code": (record.job_code or record.external_id or "")[:160],
         "title": (record.title or "Untitled role")[:512],
         "location": (record.location or "")[:1024],
         "description_html": description_html,

@@ -88,6 +88,24 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       </div>`;
   }
 
+  function jobIdCard(job: JobDetail): string {
+    const code = job.job_code || job.external_id;
+    if (!code) return "";
+    return `
+      <div class="job-id-card">
+        <p class="section-label">Job ID for referrals</p>
+        <div class="job-id-row">
+          <code>${escapeHtml(code)}</code>
+          <button class="btn btn-ghost copy-btn" type="button" data-copy-job-id="${escapeHtml(code)}">
+            Copy
+          </button>
+        </div>
+        <p class="job-id-note">
+          Use this ID in the referral form or when asking a contact to refer you.
+        </p>
+      </div>`;
+  }
+
   function fitCard(job: JobDetail): string {
     if (job.fit_score === null || job.fit_score === undefined) return "";
     const verdict =
@@ -175,7 +193,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
                   </svg>
                   ${escapeHtml(formatPosted(job.posted_date))}
                 </span>
-                <span>Ref ${escapeHtml(job.external_id)}</span>
+                <span>Job ID ${escapeHtml(job.job_code || job.external_id)}</span>
               </div>
             </div>
           </div>
@@ -189,6 +207,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
           <aside class="detail-aside" aria-label="Apply and role details">
             ${closedNotice}
+            ${jobIdCard(job)}
             ${fitCard(job)}
             <div class="apply-card">
               ${applyAction}
@@ -225,7 +244,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
                   <dd>${escapeHtml(timeAgo(job.scraped_at))}</dd>
                 </div>
                 <div class="snapshot-row">
-                  <dt>Reference</dt>
+                  <dt>Job ID</dt>
+                  <dd>${escapeHtml(job.job_code || job.external_id)}</dd>
+                </div>
+                <div class="snapshot-row">
+                  <dt>Source ref</dt>
                   <dd>${escapeHtml(job.external_id)}</dd>
                 </div>
               </dl>
@@ -233,6 +256,23 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           </aside>
         </div>
       </article>`;
+  }
+
+  function wireJobIdCopy(): void {
+    const button = container.querySelector<HTMLButtonElement>("[data-copy-job-id]");
+    if (!button) return;
+    button.addEventListener("click", async () => {
+      const value = button.dataset.copyJobId ?? "";
+      try {
+        await navigator.clipboard.writeText(value);
+        button.textContent = "Copied";
+      } catch {
+        button.textContent = "Copy failed";
+      }
+      window.setTimeout(() => {
+        button.textContent = "Copy";
+      }, 1800);
+    });
   }
 
   async function loadJob(): Promise<void> {
@@ -248,6 +288,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     try {
       const job = await fetchJSON<JobDetail>(`/api/jobs/${jobId}`);
       container.innerHTML = detailView(job);
+      wireJobIdCopy();
       container.setAttribute("aria-busy", "false");
 
       document.title = `${job.title} · ${job.company} — RoleRadar`;

@@ -3,6 +3,7 @@ export interface JobSummary {
   source: string;
   company: string;
   external_id: string;
+  job_code: string;
   title: string;
   location: string;
   apply_url: string;

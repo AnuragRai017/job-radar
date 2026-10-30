@@ -22,11 +22,13 @@ def _record(
     location: str = "New York, NY",
     description: str = "<p>Help clients with <strong>security</strong>.</p>",
     posted: date | None = date(2025, 1, 1),
+    job_code: str = "",
 ) -> JobRecord:
     return JobRecord(
         source=source,
         company="Deloitte" if source == "deloitte" else "Google",
         external_id=external_id,
+        job_code=job_code,
         title=title,
         location=location,
         description_html=description,
@@ -69,6 +71,20 @@ def test_upsert_keeps_sources_independent(db) -> None:
 
 def test_upsert_empty_batch(db) -> None:
     assert upsert_jobs(db, []) == 0
+
+
+def test_upsert_stores_native_job_code_and_falls_back_to_external_id(db) -> None:
+    upsert_jobs(db, [_record(external_id="abc", job_code="")])
+    job = db.execute(select(Job)).scalar_one()
+    assert job.job_code == "abc"
+
+    upsert_jobs(db, [_record(external_id="abc", job_code="REQ-9001")])
+    db.expire_all()
+    job = db.execute(select(Job)).scalar_one()
+    assert job.job_code == "REQ-9001"
+
+    known = load_known_jobs(db, "deloitte")
+    assert known["abc"].job_code == "REQ-9001"
 
 
 def test_load_known_jobs_reports_descriptions(db) -> None:

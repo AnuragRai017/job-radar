@@ -116,6 +116,7 @@ class CadenceScraper(BaseScraper):
             source=self.source,
             company=self.company,
             external_id=listing.external_id,
+            job_code=listing.external_id,
             title=title,
             location=location,
             description_html=description,
