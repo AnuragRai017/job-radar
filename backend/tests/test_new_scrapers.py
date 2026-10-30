@@ -320,6 +320,7 @@ def test_kpmg_talentrecruit_decrypts_and_parses_job() -> None:
                     "data": [
                         {
                             "jobid": "abc123",
+                            "code": "5257",
                             "title": "Data Engineer",
                             "joblocation": "Bengaluru, Karnataka, India",
                             "country": "India",
@@ -344,9 +345,13 @@ def test_kpmg_talentrecruit_decrypts_and_parses_job() -> None:
 
     job = KPMGIndiaScraper()._parse_job(inner["data"][0])
     assert job is not None
-    assert job.external_id == "abc123"
+    assert job.external_id == "5257"
     assert job.title == "Data Engineer"
     assert job.location == "Bengaluru, Karnataka, India"
     assert job.posted_date == date(2026, 10, 29)
     assert "Qualifications" in job.description_html
     assert job.apply_url.endswith("/career-page/apply/abc123")
+
+    fallback = KPMGIndiaScraper()._parse_job({**inner["data"][0], "code": ""})
+    assert fallback is not None
+    assert fallback.external_id == "abc123"

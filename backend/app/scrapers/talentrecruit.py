@@ -174,9 +174,10 @@ class TalentRecruitScraper(BaseScraper):
         return inner if isinstance(inner, dict) else {}
 
     def _parse_job(self, item: dict[str, Any]) -> JobRecord | None:
-        external_id = clean_text(item.get("jobid"), max_length=160) or clean_text(
-            item.get("code"), max_length=80
-        )
+        # The API's jobid is encrypted with a fresh nonce on every response, so
+        # it is not stable across sweeps. The human-readable code is stable.
+        job_token = clean_text(item.get("jobid"), max_length=160)
+        external_id = clean_text(item.get("code"), max_length=80) or job_token
         title = clean_text(item.get("title"), max_length=500)
         if not external_id or not title:
             return None
@@ -204,7 +205,7 @@ class TalentRecruitScraper(BaseScraper):
             location = f"{location}, {country}" if location else country
 
         apply_url = safe_http_url(
-            f"{CAREER_ROOT}/career-page/apply/{quote(external_id, safe='')}",
+            f"{CAREER_ROOT}/career-page/apply/{quote(job_token or external_id, safe='')}",
             f"https://{self.shortname}.talentrecruit.com/career-page",
         )
         posted = parse_date(item.get("publishedtime")) or parse_date(
