@@ -65,6 +65,8 @@ const COMPANY_META: Record<string, CompanyMeta> = {
   Google: { short: "G", color: "var(--company-google)" },
   Amazon: { short: "A", color: "var(--company-amazon)" },
   Microsoft: { short: "M", color: "var(--company-microsoft)" },
+  Vodafone: { short: "VF", color: "var(--company-vodafone)" },
+  IBM: { short: "IBM", color: "var(--company-ibm)" },
   HSBC: { short: "H", color: "var(--company-hsbc)" },
   EY: { short: "EY", color: "var(--company-ey)" },
   EXL: { short: "EXL", color: "var(--company-exl)" },

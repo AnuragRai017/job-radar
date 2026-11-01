@@ -135,11 +135,26 @@ jobs automatically after each scheduled sweep.
 
 ## Cloudflare Workers deployment
 
-Cloudflare Workers cannot run the Python/FastAPI/Postgres/scheduler stack. The
-included `wrangler.toml` deploys the **Astro frontend** as Workers static assets
-and proxies `/api/*` and `/health` to a running API:
+Cloudflare Workers cannot run the Python/FastAPI/Postgres/scheduler stack. There
+are two zero-domain deployment options:
+
+**1. Quick tunnel (fastest).** Expose the Nginx frontend, which already proxies
+`/api` to FastAPI:
 
 ```bash
+cloudflared tunnel --url http://127.0.0.1:5100
+```
+
+The generated `https://*.trycloudflare.com` URL serves the full app. Quick
+tunnels need no account, but the URL changes on restart and has no uptime
+guarantee.
+
+**2. Worker static assets + API tunnel.** `wrangler.toml` deploys the **Astro
+frontend** as Workers static assets and proxies `/api/*` and `/health` to a
+running API:
+
+```bash
+npx wrangler login
 npm run build
 npx wrangler deploy
 ```
@@ -148,7 +163,8 @@ Set `API_ORIGIN` in `wrangler.toml` (or the Worker dashboard) to the public API,
 for example the Cloudflare tunnel URL. The frontend keeps using same-origin
 `/api` paths, so no CORS changes are needed. This gives a stable
 `*.workers.dev` URL for the UI while the API, PostgreSQL, and scheduler continue
-to run on the Docker host.
+to run on the Docker host. Because the quick-tunnel hostname changes on every
+restart, update `API_ORIGIN` and redeploy when it does.
 
 ## Quick start (Docker)
 

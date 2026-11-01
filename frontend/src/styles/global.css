@@ -27,6 +27,8 @@
   --company-google: #3569d4;
   --company-amazon: #d97706;
   --company-microsoft: #0078d4;
+  --company-vodafone: #e60000;
+  --company-ibm: #0f62fe;
   --company-hsbc: #c8102e;
   --company-ey: #a67c00;
   --company-exl: #5b3fa8;
@@ -81,6 +83,8 @@
     --company-google: #7fa5f5;
     --company-amazon: #f5a623;
     --company-microsoft: #4aa8e8;
+    --company-vodafone: #ff6b6b;
+    --company-ibm: #6ea8ff;
     --company-hsbc: #f05a6a;
     --company-ey: #e0b83a;
     --company-exl: #9b7be0;
