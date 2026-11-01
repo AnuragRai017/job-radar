@@ -1,10 +1,11 @@
 # RoleRadar
 
-A fault-tolerant job aggregator for eighteen public career sites — including
+A fault-tolerant job aggregator for twenty public career sites — including
 **Deloitte**, **Capgemini**, **JPMorgan Chase**, **Google**, **Amazon**,
-**Microsoft**, **HSBC**, **EY**, **EXL**, **Concentrix**, **Cadence**,
-**Medallion**, **KPMG**, **McKinsey**, and **PwC** — with a searchable web UI,
-a read-only JSON API, resume fit scores, and a scheduled scraper.
+**Microsoft**, **Vodafone**, **IBM**, **HSBC**, **EY**, **EXL**, **Concentrix**,
+**Cadence**, **Medallion**, **KPMG**, **McKinsey**, and **PwC** — with a
+searchable web UI, a read-only JSON API, resume fit scores, and a scheduled
+scraper.
 
 RoleRadar is deliberately small and self-hosted: a FastAPI backend, PostgreSQL,
 an APScheduler worker, and a static Astro frontend served by Nginx. Everything
@@ -21,7 +22,7 @@ Browser ──:5100──► Nginx (Astro build) ──/api,/health──► Fas
 
 ## What it does
 
-- **Searches eighteen public feeds in one place.** Keyword, company, location,
+- **Searches twenty public feeds in one place.** Keyword, company, location,
   and minimum-fit filters with pagination. Full descriptions live on `/job/?id=…`
   and every apply button points at the company’s own careers site.
 - **Scores jobs against your resume.** Every active job gets a deterministic
@@ -57,6 +58,8 @@ Browser ──:5100──► Nginx (Astro build) ──/api,/health──► Fas
 | Concentrix | Embedded `jobsData` JSON on the India search page | 73 roles; one request; robots.txt asks for a 10-second crawl delay |
 | Amazon | Public `search.json` with `country=IND` | 2,100+ roles; full descriptions in the list; 100 per page |
 | Microsoft | Eightfold PCSX JSON API (`/api/pcsx/search` + `position_details`) | CSRF token from the public careers page; 10 per page |
+| Vodafone | Eightfold PCSX JSON API (same endpoints as Microsoft) | No CSRF token needed; 294 India roles; `displayJobId` is the referral ID |
+| IBM | Public careers search API (`www-api.ibm.com/search/api/v2`) | Country facet `in`; full descriptions and job IDs come from the search hits; 1,257 India roles |
 | Medallion | Public Greenhouse board API (`medallionakafirstlayerai`) | 6 roles; full content in the list response |
 | Cadence | Public open-roles HTML + detail pages | 21 roles; description in `.job-description__content` |
 | HSBC | Eightfold `/api/apply/v2/jobs` API | 220 India roles; detail endpoint supplies descriptions |
@@ -68,9 +71,15 @@ Browser ──:5100──► Nginx (Astro build) ──/api,/health──► Fas
 Counts change daily. A full live pass in October 2026 saw roughly 7,300 JPMC,
 6,800 Capgemini, 1,500 Deloitte, and 3,400 Google postings globally (strict
 robots stores only the first 20 Google results). The India-focused
-feeds add roughly 3,100 EY, 2,100 EXL, 2,100 Amazon, 790 Capgemini India, 640
-Deloitte India, 633 PwC India, 604 KPMG Global Services, 240 Microsoft, 220 HSBC,
-102 KPMG India, 73 Concentrix, 46 McKinsey, 21 Cadence, and 6 Medallion roles.
+feeds add roughly 3,100 EY, 2,100 EXL, 2,100 Amazon, 1,257 IBM, 790 Capgemini
+India, 640 Deloitte India, 633 PwC India, 604 KPMG Global Services, 294
+Vodafone, 240 Microsoft, 220 HSBC, 102 KPMG India, 73 Concentrix, 46 McKinsey,
+21 Cadence, and 6 Medallion roles.
+
+Flexiple is intentionally not included: `app.flexiple.com/talent/jobs` is a
+WorkOS-authenticated talent app, so an anonymous request only returns an empty
+app shell. Adding it would need a user-supplied session or a documented public
+feed.
 
 ### Resume fit scoring
 
@@ -105,6 +114,8 @@ available:
 | Amazon | iCIMS job ID (e.g. `10593269`) |
 | Capgemini | Requisition ID from the apply URL (e.g. `1444351833`) |
 | Microsoft | `displayJobId` (e.g. `200044512`) |
+| Vodafone | `displayJobId` (e.g. `291175`) |
+| IBM | Numeric `jobId` from the careers URL (e.g. `139038`) |
 | HSBC | `display_job_id` (e.g. `65139`) |
 | Deloitte / EY / EXL / JPMorgan / KPMG GS | Requisition ID |
 | KPMG India | Job `code` (e.g. `5257`) |
@@ -244,7 +255,7 @@ list. The ones that matter most:
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `DATABASE_URL` | SQLite locally, PostgreSQL in Compose | SQLAlchemy connection string |
-| `SCRAPE_SOURCES` | all 18 sources (`jpmorgan` … `pwc_india`) | Comma-separated scrapers to run |
+| `SCRAPE_SOURCES` | all 20 sources (`jpmorgan` … `ibm`) | Comma-separated scrapers to run |
 | `SCRAPE_INTERVAL_HOURS` | `6` | Scheduler interval |
 | `SCRAPE_ON_STARTUP` | `true` | Run immediately when the worker starts |
 | `SCRAPE_MAX_JOBS_PER_SOURCE` | `0` | Per-source cap; `0` = unlimited |
@@ -395,7 +406,7 @@ python -m ruff check app tests
 
 The test suite uses a temporary SQLite database and covers the sanitizer,
 repository upserts/deactivation, API filters/pagination/detail/stats/fit
-scores, all eighteen source parsers, resume profile extraction, heuristic fit
+scores, all twenty source parsers, resume profile extraction, heuristic fit
 scoring, and the AI fallback's JSON, URL, budget, and sanitization guardrails.
 It makes no live network requests.
 
@@ -425,10 +436,11 @@ npm run build
 │   │   │   ├── capgemini.py      # WordPress JobStream API (global + India)
 │   │   │   ├── concentrix.py     # embedded jobsData JSON
 │   │   │   ├── deloitte.py       # US Avature listing + JSON-LD detail
-│   │   │   ├── eightfold.py      # HSBC + Microsoft Eightfold APIs
+│   │   │   ├── eightfold.py      # HSBC + Microsoft + Vodafone Eightfold APIs
 │   │   │   ├── exl.py            # EXL Oracle Recruiting (CX_2)
 │   │   │   ├── google.py         # ds:1 blob parser + robots gate
 │   │   │   ├── greenhouse.py     # Medallion Greenhouse board API
+│   │   │   ├── ibm.py            # IBM careers search API (India)
 │   │   │   ├── jpmorgan.py       # JPMorgan Oracle Recruiting
 │   │   │   ├── kpmg_gs.py        # KPMG Global Services Oracle (CX_3)
 │   │   │   ├── mckinsey.py       # McKinsey careers search JSON
@@ -515,8 +527,12 @@ you run it**:
 - **Deloitte India / EY.** SuccessFactors search and `/job/` detail pages are
   public. robots.txt disallows `/services/` and `/applybutton/`; RoleRadar does
   not call those paths. Search cards for filled requisitions are skipped.
-- **Eightfold (Microsoft, HSBC).** robots.txt explicitly allows `/careers`,
-  `/api/apply`, and `/api/pcsx`; the scrapers use only those public endpoints.
+- **Eightfold (Microsoft, Vodafone, HSBC).** robots.txt explicitly allows
+  `/careers`, `/api/apply`, and `/api/pcsx`; the scrapers use only those public
+  endpoints. Vodafone’s PCSX feed needs no CSRF token.
+- **IBM.** The careers page drives a public JSON search API on
+  `www-api.ibm.com`; the scraper sends the same country-facet query and reads
+  descriptions from the search hits instead of the bot-challenged detail page.
 - **Amazon / Medallion / Cadence / Concentrix.** Amazon’s `search.json` is
   allowed (only `/internal` is disallowed). Medallion’s Greenhouse board API is
   public and its robots file allows crawlers. Cadence allows job pages (the
@@ -561,7 +577,7 @@ you run it**:
 | Port 5100/5200 already in use | Change `FRONTEND_HOST_PORT` / `API_HOST_PORT` in `.env` and re-run Compose |
 | Scraper returns 403/429 | The site may be throttling or blocking. Raise `HTTP_RATE_LIMIT_SECONDS`; do not disable robots casually |
 | India source has fewer jobs than the site | Filled/closing requisitions still appear in SuccessFactors search but are skipped when the detail page says the position is filled |
-| First full sweep takes hours | Expected across 18 sources; run a capped smoke test with `python -m app.cli scrape --sources amazon,microsoft --limit 5` |
+| First full sweep takes hours | Expected across 20 sources; run a capped smoke test with `python -m app.cli scrape --sources amazon,microsoft --limit 5` |
 | Fit scores are missing | Run `docker compose exec scheduler python -m app.cli score --limit 300`; check `RESUME_PATH` and `docker compose exec scheduler ls -l /app/data` |
 | Fit scoring is slow | The default cloud model needs network access; on a CPU-only host use the cloud tag or accept that local 7B scoring takes minutes per job |
 | AI fallback never runs | Set `AI_FALLBACK_ENABLED=true` and recreate the scheduler. `docker compose exec scheduler python -c "import urllib.request; print(urllib.request.urlopen('http://host.docker.internal:11434/api/tags', timeout=5).status)"` should print `200` |

@@ -338,3 +338,24 @@ class MicrosoftScraper(EightfoldScraper):
             apply_url=apply_url,
             posted_date=posted,
         )
+
+
+class VodafoneScraper(MicrosoftScraper):
+    """Vodafone — Eightfold PCSX careers site, India location feed.
+
+    Same PCSX endpoints as Microsoft, but the public feed works without a CSRF
+    token or session cookies. ``displayJobId`` is Vodafone's referral ID.
+    """
+
+    source = "vodafone"
+    company = "Vodafone"
+    base_url = "https://jobs.vodafone.com"
+    domain = "vodafone.com"
+    requires_csrf = False
+    default_max_pages = 40
+
+    def _api_headers(self) -> dict[str, str]:
+        return {
+            "Referer": f"{self.base_url}/careers",
+            "Accept": "application/json",
+        }

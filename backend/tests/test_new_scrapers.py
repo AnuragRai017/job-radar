@@ -11,9 +11,10 @@ from app.scrapers.amazon import AmazonScraper, _parse_amazon_date
 from app.scrapers.cadence import CadenceScraper
 from app.scrapers.capgemini import CapgeminiIndiaScraper
 from app.scrapers.concentrix import ConcentrixScraper
-from app.scrapers.eightfold import HSBCScraper, MicrosoftScraper
+from app.scrapers.eightfold import HSBCScraper, MicrosoftScraper, VodafoneScraper
 from app.scrapers.exl import EXLScraper
 from app.scrapers.greenhouse import MedallionScraper
+from app.scrapers.ibm import IBMScraper
 from app.scrapers.kpmg_gs import KPMGGlobalServicesScraper
 from app.scrapers.mckinsey import McKinseyScraper
 from app.scrapers.registry import SCRAPER_CLASSES
@@ -22,7 +23,7 @@ from app.scrapers.talentrecruit import SECRET_KEY, KPMGIndiaScraper
 from app.scrapers.workday import PwCIndiaScraper
 
 
-def test_registry_has_all_eighteen_sources() -> None:
+def test_registry_has_all_twenty_sources() -> None:
     assert set(SCRAPER_CLASSES) == {
         "jpmorgan",
         "deloitte",
@@ -42,6 +43,8 @@ def test_registry_has_all_eighteen_sources() -> None:
         "kpmg_india",
         "mckinsey",
         "pwc_india",
+        "vodafone",
+        "ibm",
     }
 
 
@@ -368,3 +371,94 @@ def test_kpmg_talentrecruit_decrypts_and_parses_job() -> None:
     fallback = KPMGIndiaScraper()._parse_job({**inner["data"][0], "code": ""})
     assert fallback is not None
     assert fallback.external_id == "abc123"
+
+
+def test_vodafone_reuses_pcsx_without_csrf() -> None:
+    scraper = VodafoneScraper()
+    assert scraper.source == "vodafone"
+    assert scraper.company == "Vodafone"
+    assert scraper.domain == "vodafone.com"
+    assert scraper.requires_csrf is False
+    assert "/api/pcsx/search" in scraper._list_url(20)
+    assert "domain=vodafone.com" in scraper._list_url(20)
+    assert "start=20" in scraper._list_url(20)
+    assert "x-csrf-token" not in scraper._api_headers()
+
+    job = scraper._parse_detail(
+        {
+            "data": {
+                "id": 563018698166833,
+                "displayJobId": "291175",
+                "name": "VP - Culture, DEI, EVP & Internal Communications Lead",
+                "location": "India",
+                "jobDescription": "<p>Lead communications.</p>",
+                "postedTs": 1791270450,
+                "publicUrl": "https://jobs.vodafone.com/careers/job/563018698166833",
+            }
+        },
+        {"id": 563018698166833, "name": "VP", "locations": ["India"]},
+    )
+    assert job.external_id == "563018698166833"
+    assert job.job_code == "291175"
+    assert job.location == "India"
+    assert job.apply_url.endswith("/careers/job/563018698166833")
+    assert job.description_html == "<p>Lead communications.</p>"
+
+
+def test_ibm_paginates_india_search_hits() -> None:
+    scraper = IBMScraper()
+    assert scraper.source == "ibm"
+    assert scraper.page_size == 100
+    query = scraper._query(200, 3)
+    assert query["from"] == 200
+    assert query["p"] == 3
+    assert query["query"]["bool"]["must"] == [{"match": {"country": "in"}}]
+    assert query["sort"] == [{"_id": "asc"}]
+    assert "raw_body" in query["_source"]
+
+    payload = {
+        "hits": {
+            "total": {"value": 1257, "relation": "eq"},
+            "hits": [
+                {
+                    "_source": {
+                        "title": "India – Quality Leader",
+                        "url": "https://careers.ibm.com/careers/JobDetail?jobId=139038",
+                        "field_keyword_19": "Bangalore, IN",
+                        "dcdate": "2026-10-28",
+                        "raw_body": "<p>Youâ€™ll build quality systems.</p>",
+                    }
+                },
+                {
+                    "_source": {
+                        "title": "Consultant",
+                        "url": "https://careers.ibm.com/careers/JobDetail?jobId=139039",
+                        "field_keyword_19": "",
+                        "dcdate": "2026-10-27",
+                        "description": "Short description.",
+                    }
+                },
+                "not-a-hit",
+            ],
+        }
+    }
+    records, total = scraper._parse_page(payload)
+    assert total == 1257
+    assert len(records) == 2
+
+    assert scraper._external_id(records[0]) == "139038"
+    job = scraper._parse_job(records[0], "139038")
+    assert job.external_id == "139038"
+    assert job.job_code == "139038"
+    assert job.title == "Quality Leader"
+    assert job.location == "Bangalore, IN"
+    assert job.posted_date == date(2026, 10, 28)
+    assert job.apply_url.endswith("jobId=139038")
+    assert job.description_html == "<p>You’ll build quality systems.</p>"
+
+    fallback = scraper._parse_job(records[1], "139039")
+    assert fallback.location == "India"
+    assert fallback.description_html == "Short description."
+
+    assert scraper._external_id({"url": "https://careers.ibm.com/careers/JobDetail"}) == ""
+    assert scraper._repair_text("plain text") == "plain text"

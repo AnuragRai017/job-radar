@@ -36,9 +36,9 @@ class Settings(BaseSettings):
 
     # Scheduling
     scrape_sources: str = (
-        "amazon,concentrix,mckinsey,kpmg_india,microsoft,hsbc,medallion,cadence,"
-        "kpmg_gs,pwc_india,capgemini_india,exl,deloitte_india,ey,"
-        "jpmorgan,deloitte,capgemini,google"
+        "amazon,concentrix,mckinsey,kpmg_india,microsoft,vodafone,ibm,hsbc,"
+        "medallion,cadence,kpmg_gs,pwc_india,capgemini_india,exl,"
+        "deloitte_india,ey,jpmorgan,deloitte,capgemini,google"
     )
     scrape_interval_hours: float = 6.0
     scrape_on_startup: bool = True
