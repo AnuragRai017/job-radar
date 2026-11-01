@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import csv
+import io
 from datetime import UTC, date, datetime
 
 from app.models import Job, ScrapeRun
@@ -213,3 +215,24 @@ def test_fit_score_filter_sort_and_detail(client, db) -> None:
     stats = client.get("/api/stats").json()
     assert stats["fit_scored_jobs"] == 1
     assert stats["fit_best_score"] == 82
+
+
+def test_export_jobs_csv_includes_referral_ids(client, db) -> None:
+    _seed(db)
+    response = client.get("/api/export/jobs.csv")
+    assert response.status_code == 200
+    assert "text/csv" in response.headers["content-type"]
+    assert "attachment" in response.headers["content-disposition"]
+
+    rows = list(csv.reader(io.StringIO(response.text)))
+    assert rows[0][0] == "job_id"
+    assert rows[0][8] == "source_ref"
+    assert len(rows) == 4  # header + three active jobs
+    assert {row[0] for row in rows[1:]} == {"g1", "g2", "d1"}
+
+    all_rows = list(
+        csv.reader(
+            io.StringIO(client.get("/api/export/jobs.csv?include_inactive=true").text)
+        )
+    )
+    assert len(all_rows) == 5

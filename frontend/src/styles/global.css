@@ -687,12 +687,35 @@ ol {
   font-variant-numeric: tabular-nums;
 }
 
+.results-tools {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .results-filter-note {
   display: flex;
   align-items: center;
   gap: 10px;
   font-size: 0.78rem;
   color: var(--muted);
+}
+
+.export-link {
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.export-link:hover {
+  border-bottom-color: var(--accent);
+  color: var(--accent-strong);
 }
 
 .results-filter-note button {

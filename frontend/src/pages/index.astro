@@ -115,7 +115,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           <h2 id="results-title">The feed</h2>
           <p class="result-count" id="result-count">Loading…</p>
         </div>
-        <p class="results-filter-note" id="results-sort-note">Newest postings first</p>
+        <div class="results-tools">
+          <p class="results-filter-note" id="results-sort-note">Newest postings first</p>
+          <a class="export-link" href="/api/export/jobs.csv" download>Download CSV</a>
+        </div>
       </div>
 
       <p class="visually-hidden" id="status" role="status" aria-live="polite"></p>

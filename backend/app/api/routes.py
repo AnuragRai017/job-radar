@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import csv
+import io
 import math
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
@@ -143,6 +145,69 @@ def list_jobs(
         page=page,
         page_size=page_size,
         pages=pages,
+    )
+
+
+@router.get("/export/jobs.csv", summary="Download all jobs with referral IDs")
+def export_jobs_csv(
+    db: Session = Depends(get_db),
+    include_inactive: bool = Query(False),
+) -> Response:
+    query = select(
+        Job.id,
+        Job.company,
+        Job.title,
+        Job.location,
+        Job.job_code,
+        Job.external_id,
+        Job.source,
+        Job.apply_url,
+        Job.posted_date,
+        Job.fit_score,
+        Job.fit_verdict,
+    ).order_by(Job.company, Job.title)
+    if not include_inactive:
+        query = query.where(Job.is_active.is_(True))
+
+    output = io.StringIO()
+    writer = csv.writer(output, lineterminator="\n")
+    writer.writerow(
+        [
+            "job_id",
+            "company",
+            "title",
+            "location",
+            "posted_date",
+            "fit_score",
+            "fit_verdict",
+            "source",
+            "source_ref",
+            "apply_url",
+        ]
+    )
+    for row in db.execute(query):
+        writer.writerow(
+            [
+                row.job_code or row.external_id,
+                row.company,
+                row.title,
+                row.location,
+                row.posted_date.isoformat() if row.posted_date else "",
+                row.fit_score if row.fit_score is not None else "",
+                row.fit_verdict or "",
+                row.source,
+                row.external_id,
+                row.apply_url,
+            ]
+        )
+
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": 'attachment; filename="roleradar-jobs.csv"',
+            "Cache-Control": "no-store",
+        },
     )
 
 
