@@ -14,4 +14,4 @@ run_worker_first = true
 [vars]
 # The Worker proxies /api and /health to this running API.
 # Update this if the temporary tunnel URL changes.
-API_ORIGIN = "https://nick-works-aruba-shorter.trycloudflare.com"
+API_ORIGIN = "https://variables-newer-street-inquiry.trycloudflare.com"
