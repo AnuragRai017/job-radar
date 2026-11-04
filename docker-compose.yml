@@ -11,7 +11,7 @@ x-backend-common: &backend-common
 
     CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5100,http://127.0.0.1:5100}
 
-    SCRAPE_SOURCES: ${SCRAPE_SOURCES:-amazon,concentrix,mckinsey,kpmg_india,microsoft,vodafone,ibm,hsbc,medallion,cadence,kpmg_gs,pwc_india,capgemini_india,exl,deloitte_india,ey,jpmorgan,deloitte,capgemini,google}
+    SCRAPE_SOURCES: ${SCRAPE_SOURCES:-amazon,concentrix,mckinsey,kpmg_india,microsoft,vodafone,ibm,allstate,hubspot,3m,bcg,hsbc,medallion,cadence,kpmg_gs,pwc_india,capgemini_india,exl,deloitte_india,ey,jpmorgan,deloitte,capgemini,google}
     SCRAPE_INTERVAL_HOURS: ${SCRAPE_INTERVAL_HOURS:-6}
     SCRAPE_ON_STARTUP: ${SCRAPE_ON_STARTUP:-true}
     SCRAPE_MAX_JOBS_PER_SOURCE: ${SCRAPE_MAX_JOBS_PER_SOURCE:-0}

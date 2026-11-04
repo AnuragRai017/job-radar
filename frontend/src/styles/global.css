@@ -29,6 +29,10 @@
   --company-microsoft: #0078d4;
   --company-vodafone: #e60000;
   --company-ibm: #0f62fe;
+  --company-3m: #cc0000;
+  --company-bcg: #177b57;
+  --company-allstate: #0033a0;
+  --company-hubspot: #ff7a59;
   --company-hsbc: #c8102e;
   --company-ey: #a67c00;
   --company-exl: #5b3fa8;
@@ -85,6 +89,10 @@
     --company-microsoft: #4aa8e8;
     --company-vodafone: #ff6b6b;
     --company-ibm: #6ea8ff;
+    --company-3m: #ff6b6b;
+    --company-bcg: #4fd1a5;
+    --company-allstate: #6ea8ff;
+    --company-hubspot: #ff9c82;
     --company-hsbc: #f05a6a;
     --company-ey: #e0b83a;
     --company-exl: #9b7be0;

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import re
 from typing import Any
 
 from app.scrapers.base import FetchError
@@ -35,6 +36,8 @@ class GreenhouseScraper(BaseScraper):
                 external_id = str(item.get("id") or "").strip()
                 if not external_id or external_id in result.seen_ids:
                     continue
+                if not self._include(item):
+                    continue
                 result.seen_ids.add(external_id)
                 job = self._parse_job(item)
                 if job is None:
@@ -51,6 +54,10 @@ class GreenhouseScraper(BaseScraper):
             result.complete,
         )
         return result
+
+    def _include(self, item: dict[str, Any]) -> bool:
+        """Return False for board entries this source should ignore."""
+        return True
 
     def _parse_job(self, item: dict[str, Any]) -> JobRecord | None:
         external_id = str(item.get("id") or "").strip()
@@ -80,6 +87,7 @@ class GreenhouseScraper(BaseScraper):
             source=self.source,
             company=self.company,
             external_id=external_id,
+            job_code=external_id,
             title=title,
             location=location,
             description_html=description,
@@ -92,3 +100,21 @@ class MedallionScraper(GreenhouseScraper):
     source = "medallion"
     company = "Medallion"
     board_token = "medallionakafirstlayerai"
+
+
+class HubSpotScraper(GreenhouseScraper):
+    """HubSpot — public Greenhouse board, Bengaluru/India roles only.
+
+    The board lists 100+ roles worldwide. The careers directory is India-aware
+    (``office=bengaluru,remote``), so this source keeps postings whose location
+    names India or Bengaluru.
+    """
+
+    source = "hubspot"
+    company = "HubSpot"
+    board_token = "hubspotjobs"
+
+    def _include(self, item: dict[str, Any]) -> bool:
+        location = item.get("location")
+        name = location.get("name") if isinstance(location, dict) else str(location or "")
+        return bool(re.search(r"\b(india|bengaluru|bangalore)\b", name, re.IGNORECASE))

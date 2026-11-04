@@ -7,23 +7,25 @@ from datetime import date
 from bs4 import BeautifulSoup
 from nacl.public import Box, PrivateKey
 
+from app.scrapers.allstate import AllstateScraper
 from app.scrapers.amazon import AmazonScraper, _parse_amazon_date
+from app.scrapers.bcg import BCGScraper
 from app.scrapers.cadence import CadenceScraper
 from app.scrapers.capgemini import CapgeminiIndiaScraper
 from app.scrapers.concentrix import ConcentrixScraper
 from app.scrapers.eightfold import HSBCScraper, MicrosoftScraper, VodafoneScraper
 from app.scrapers.exl import EXLScraper
-from app.scrapers.greenhouse import MedallionScraper
+from app.scrapers.greenhouse import HubSpotScraper, MedallionScraper
 from app.scrapers.ibm import IBMScraper
 from app.scrapers.kpmg_gs import KPMGGlobalServicesScraper
 from app.scrapers.mckinsey import McKinseyScraper
 from app.scrapers.registry import SCRAPER_CLASSES
 from app.scrapers.successfactors import DeloitteIndiaScraper, EYScraper
 from app.scrapers.talentrecruit import SECRET_KEY, KPMGIndiaScraper
-from app.scrapers.workday import PwCIndiaScraper
+from app.scrapers.workday import PwCIndiaScraper, ThreeMScraper
 
 
-def test_registry_has_all_twenty_sources() -> None:
+def test_registry_has_all_twenty_four_sources() -> None:
     assert set(SCRAPER_CLASSES) == {
         "jpmorgan",
         "deloitte",
@@ -45,6 +47,10 @@ def test_registry_has_all_twenty_sources() -> None:
         "pwc_india",
         "vodafone",
         "ibm",
+        "3m",
+        "bcg",
+        "allstate",
+        "hubspot",
     }
 
 
@@ -462,3 +468,102 @@ def test_ibm_paginates_india_search_hits() -> None:
 
     assert scraper._external_id({"url": "https://careers.ibm.com/careers/JobDetail"}) == ""
     assert scraper._repair_text("plain text") == "plain text"
+
+
+def test_3m_uses_workday_country_facet() -> None:
+    scraper = ThreeMScraper()
+    assert scraper.source == "3m"
+    assert scraper.company == "3M"
+    assert scraper.tenant == "3m"
+    assert scraper.site == "Search"
+    assert scraper.applied_facet_key == "Location_Country"
+    assert scraper.india_facet_id == "c4f78be1a8f14da0ab49ce1162348a5e"
+    assert scraper._jobs_url() == "https://3m.wd1.myworkdayjobs.com/wday/cxs/3m/Search/jobs"
+    assert scraper._detail_url("/job/IN-Bangalore/Role_R01170069").endswith(
+        "/wday/cxs/3m/Search/job/IN-Bangalore/Role_R01170069"
+    )
+
+
+def test_bcg_parses_embedded_results_and_jobposting() -> None:
+    search_html = """
+    <script>
+      phApp = phApp || {};
+      phApp.ddo = {"eagerLoadRefineSearch":{"status":200,"totalHits":2,"data":{"jobs":[
+        {"jobId":"60181","title":"India Specialist Marketing - CRM","country":"India","location":"Gurgaon, Haryana, India","postedDate":"2026-10-21T00:00:00.000+0000"},
+        {"jobId":"61334","title":"Administrative Assistant","country":"Portugal","location":"Lisbon, Portugal","postedDate":"2026-09-14T00:00:00.000+0000"}
+      ]}}};
+    </script>
+    """
+    listings, total = BCGScraper._parse_search(search_html)
+    assert total == 2
+    assert [item["jobId"] for item in listings] == ["60181", "61334"]
+
+    detail_html = """
+    <script type="application/ld+json">
+    {"@type":"JobPosting","identifier":{"@type":"PropertyValue","value":"60181"},
+     "title":"India Specialist Marketing - CRM","datePosted":"2026-11-04",
+     "jobLocation":{"@type":"Place","address":{"@type":"PostalAddress",
+       "addressLocality":"Gurgaon","addressRegion":"Haryana","addressCountry":"India"}},
+     "description":"<p>Own CRM campaigns.</p>"}
+    </script>
+    """
+    job = BCGScraper()._parse_detail(detail_html, listings[0])
+    assert job.external_id == "60181"
+    assert job.job_code == "60181"
+    assert job.title == "India Specialist Marketing - CRM"
+    assert job.location == "Gurgaon, Haryana, India"
+    assert job.posted_date == date(2026, 10, 21)
+    assert job.description_html == "<p>Own CRM campaigns.</p>"
+    assert job.apply_url.endswith("/global/en/job/60181")
+
+
+def test_allstate_parses_india_record() -> None:
+    scraper = AllstateScraper()
+    assert scraper.source == "allstate"
+    assert "organization=2030" in scraper._page_url(100)
+    assert "SearchText=India" in scraper._page_url(100)
+    assert "offset=100" in scraper._page_url(100)
+
+    job = scraper._parse_job(
+        {
+            "id": 24083945,
+            "ref": "R36353",
+            "title": "Software Engineer Senior Consultant I",
+            "description": "<p>Build systems.</p>",
+            "primary_city": "Bengaluru",
+            "primary_state": "Karnataka",
+            "primary_country": "IN",
+            "open_date": "2026-10-29T00:00:00Z",
+            "url": "https://www.allstate.jobs/job/24083945/software-engineer/",
+        },
+        "24083945",
+    )
+    assert job.external_id == "24083945"
+    assert job.job_code == "R36353"
+    assert job.location == "Bengaluru, Karnataka, India"
+    assert job.posted_date == date(2026, 10, 29)
+    assert job.description_html == "<p>Build systems.</p>"
+
+
+def test_hubspot_filters_greenhouse_board_to_india() -> None:
+    scraper = HubSpotScraper()
+    assert scraper.source == "hubspot"
+    assert scraper.board_token == "hubspotjobs"
+    assert scraper._include({"location": {"name": "Office - Bengaluru, India"}})
+    assert not scraper._include({"location": {"name": "Remote - USA"}})
+
+    job = scraper._parse_job(
+        {
+            "id": 5990863,
+            "title": "Account Executive, Mid Market",
+            "location": {"name": "Office - Bengaluru, India"},
+            "absolute_url": "https://www.hubspot.com/careers/jobs/5990863?gh_jid=5990863",
+            "content": "&lt;p&gt;Sell HubSpot.&lt;/p&gt;",
+            "updated_at": "2026-10-30T10:00:00-04:00",
+        }
+    )
+    assert job is not None
+    assert job.external_id == "5990863"
+    assert job.job_code == "5990863"
+    assert job.location == "Office - Bengaluru, India"
+    assert job.description_html == "<p>Sell HubSpot.</p>"

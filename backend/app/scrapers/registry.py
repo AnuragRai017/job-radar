@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from app.config import settings
+from app.scrapers.allstate import AllstateScraper
 from app.scrapers.amazon import AmazonScraper
+from app.scrapers.bcg import BCGScraper
 from app.scrapers.cadence import CadenceScraper
 from app.scrapers.capgemini import CapgeminiIndiaScraper, CapgeminiScraper
 from app.scrapers.concentrix import ConcentrixScraper
@@ -9,7 +11,7 @@ from app.scrapers.deloitte import DeloitteScraper
 from app.scrapers.eightfold import HSBCScraper, MicrosoftScraper, VodafoneScraper
 from app.scrapers.exl import EXLScraper
 from app.scrapers.google import GoogleScraper
-from app.scrapers.greenhouse import MedallionScraper
+from app.scrapers.greenhouse import HubSpotScraper, MedallionScraper
 from app.scrapers.ibm import IBMScraper
 from app.scrapers.jpmorgan import JPMorganScraper
 from app.scrapers.kpmg_gs import KPMGGlobalServicesScraper
@@ -17,7 +19,7 @@ from app.scrapers.mckinsey import McKinseyScraper
 from app.scrapers.models import BaseScraper
 from app.scrapers.successfactors import DeloitteIndiaScraper, EYScraper
 from app.scrapers.talentrecruit import KPMGIndiaScraper
-from app.scrapers.workday import PwCIndiaScraper
+from app.scrapers.workday import PwCIndiaScraper, ThreeMScraper
 
 SCRAPER_CLASSES: dict[str, type[BaseScraper]] = {
     "jpmorgan": JPMorganScraper,
@@ -40,6 +42,10 @@ SCRAPER_CLASSES: dict[str, type[BaseScraper]] = {
     "pwc_india": PwCIndiaScraper,
     "vodafone": VodafoneScraper,
     "ibm": IBMScraper,
+    "3m": ThreeMScraper,
+    "bcg": BCGScraper,
+    "allstate": AllstateScraper,
+    "hubspot": HubSpotScraper,
 }
 
 COMPANY_NAMES = {
@@ -63,6 +69,10 @@ COMPANY_NAMES = {
     "pwc_india": "PwC India",
     "vodafone": "Vodafone",
     "ibm": "IBM",
+    "3m": "3M",
+    "bcg": "Boston Consulting Group",
+    "allstate": "Allstate",
+    "hubspot": "HubSpot",
 }
 
 

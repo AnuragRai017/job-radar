@@ -61,6 +61,11 @@ class WorkdayScraper(BaseScraper):
     site = ""
     company_name = ""
     location_keywords = INDIA_LOCATION_KEYWORDS
+    # Workday exposes different facet parameter names per tenant. PwC uses the
+    # city-level `locationMainGroup` (applied as `locations`); 3M exposes a
+    # country-level `Location_Country` facet with a stable India id.
+    applied_facet_key = "locations"
+    india_facet_id = ""
     page_size = 20
     default_max_pages = 40
 
@@ -176,7 +181,7 @@ class WorkdayScraper(BaseScraper):
         self, http: HttpClient, offset: int, facet_ids: list[str]
     ) -> dict[str, Any]:
         body: dict[str, Any] = {
-            "appliedFacets": {"locations": facet_ids} if facet_ids else {},
+            "appliedFacets": {self.applied_facet_key: facet_ids} if facet_ids else {},
             "limit": self.page_size,
             "offset": offset,
             "searchText": "" if facet_ids else "India",
@@ -190,6 +195,8 @@ class WorkdayScraper(BaseScraper):
         return payload
 
     async def _fetch_india_facets(self, http: HttpClient) -> list[str]:
+        if self.india_facet_id:
+            return [self.india_facet_id]
         body = {"appliedFacets": {}, "limit": 1, "offset": 0, "searchText": ""}
         try:
             response = await http.post(
@@ -269,6 +276,7 @@ class WorkdayScraper(BaseScraper):
             source=self.source,
             company=self.company,
             external_id=external_id,
+            job_code=external_id,
             title=title or "Untitled role",
             location=location,
             description_html=description,
@@ -286,3 +294,16 @@ class PwCIndiaScraper(WorkdayScraper):
     tenant = "pwc"
     site = "Global_Experienced_Careers"
     default_max_pages = 40
+
+
+class ThreeMScraper(WorkdayScraper):
+    """3M — Workday careers site with a country-level India facet."""
+
+    source = "3m"
+    company = "3M"
+    base_url = "https://3m.wd1.myworkdayjobs.com"
+    tenant = "3m"
+    site = "Search"
+    applied_facet_key = "Location_Country"
+    india_facet_id = "c4f78be1a8f14da0ab49ce1162348a5e"
+    default_max_pages = 10
