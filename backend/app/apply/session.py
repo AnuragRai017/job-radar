@@ -12,8 +12,14 @@ def session_path(source: str) -> Path:
     return SESSION_DIR / f"{source}.json"
 
 
+def profile_dir(source: str) -> Path:
+    """Persistent Chrome profile for a source (cookies/localStorage on disk)."""
+    return SESSION_DIR / f"chrome-{source}"
+
+
 def has_session(source: str) -> bool:
-    return session_path(source).exists()
+    directory = profile_dir(source)
+    return directory.exists() and any(directory.iterdir())
 
 
 def load_state(source: str) -> dict | None:

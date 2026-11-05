@@ -21,7 +21,7 @@ from playwright.sync_api import sync_playwright
 from app.apply.autofill import autofill, summarize, unfilled_required
 from app.apply.paths import SCREENSHOT_DIR
 from app.apply.profile import load_profile
-from app.apply.session import load_state
+from app.apply.session import has_session, load_state, profile_dir
 
 APPLY_LABELS = (
     "Apply now",
@@ -69,8 +69,9 @@ def main() -> int:
         print("Provide --url or a job with an apply_url.")
         return 2
 
-    state = load_state(args.source)
-    if state is None:
+    use_profile = has_session(args.source)
+    state = None if use_profile else load_state(args.source)
+    if not use_profile and state is None:
         print(
             f"No saved session for {args.source}. Run:\n"
             f"  python login_ats.py --source {args.source} --url <login-or-job-url>"
@@ -85,13 +86,23 @@ def main() -> int:
     screenshot = SCREENSHOT_DIR / f"autofill-{args.source}-{stamp}.png"
 
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(
-            channel="chrome", headless=not args.headed
-        )
-        context = browser.new_context(
-            storage_state=state, viewport={"width": 1366, "height": 900}
-        )
-        page = context.new_page()
+        browser = None
+        if use_profile:
+            context = playwright.chromium.launch_persistent_context(
+                user_data_dir=str(profile_dir(args.source)),
+                channel="chrome",
+                headless=not args.headed,
+                viewport={"width": 1366, "height": 900},
+            )
+            page = context.pages[0] if context.pages else context.new_page()
+        else:
+            browser = playwright.chromium.launch(
+                channel="chrome", headless=not args.headed
+            )
+            context = browser.new_context(
+                storage_state=state, viewport={"width": 1366, "height": 900}
+            )
+            page = context.new_page()
         try:
             page.goto(url, wait_until="domcontentloaded", timeout=90_000)
             page.wait_for_timeout(2_000)
@@ -116,7 +127,8 @@ def main() -> int:
             return 1
         finally:
             context.close()
-            browser.close()
+            if browser is not None:
+                browser.close()
     return 0
 
 
