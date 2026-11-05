@@ -76,6 +76,30 @@ def wait_for_form(page, seconds: int) -> bool:
     return False
 
 
+def fill_custom_fields(page, profile) -> None:
+    """Fill custom comboboxes (Oracle Country / Preferred Location)."""
+    for label_text, value in (
+        ("Country", profile.country),
+        ("Preferred Location", profile.location),
+    ):
+        with contextlib.suppress(Exception):
+            label = page.get_by_text(label_text, exact=False).first
+            container = label.locator("xpath=ancestor::div[1]")
+            field = container.locator("input").first
+            if not field.is_visible():
+                continue
+            field.click()
+            field.fill(value)
+            page.wait_for_timeout(700)
+            try:
+                page.get_by_role("option", name=value, exact=False).first.click(
+                    timeout=1_500
+                )
+            except Exception:  # noqa: BLE001
+                page.keyboard.press("ArrowDown")
+                page.keyboard.press("Enter")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Auto-fill an ATS application")
     parser.add_argument("--source", required=True, help="Session/source key")
@@ -89,6 +113,11 @@ def main() -> int:
         type=int,
         default=0,
         help="Seconds to wait for a human to clear CAPTCHA/login before filling",
+    )
+    parser.add_argument(
+        "--dump-dom",
+        action="store_true",
+        help="Save the form HTML for adapter debugging",
     )
     args = parser.parse_args()
 
@@ -148,6 +177,11 @@ def main() -> int:
                 )
                 wait_for_form(page, args.wait_for_form)
             results = autofill(page, profile)
+            fill_custom_fields(page, profile)
+            if args.dump_dom:
+                dom_path = screenshot.with_suffix(".html")
+                dom_path.write_text(page.content(), encoding="utf-8")
+                print(f"DOM: {dom_path}")
             remaining = unfilled_required(page)
             page.screenshot(path=str(screenshot), full_page=True)
             print(f"URL: {page.url}")
