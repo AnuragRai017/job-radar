@@ -62,6 +62,9 @@ def handle_gate(page, profile) -> None:
             page.click("#legal-disclaimer-checkbox-label")
             page.wait_for_timeout(800)
             page.get_by_text("Agree", exact=True).first.click(timeout=3_000)
+    with contextlib.suppress(Exception):
+        page.get_by_role("button", name="NEXT", exact=False).first.click(timeout=3_000)
+        page.wait_for_timeout(1_500)
 
 
 def wait_for_form(page, seconds: int) -> bool:
