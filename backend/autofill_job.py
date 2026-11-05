@@ -68,8 +68,10 @@ def wait_for_form(page, seconds: int) -> bool:
     """Wait while the user clears a CAPTCHA/login, then detect the form."""
     deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:
-        if page.locator("input[type=file]").count() or page.locator(
-            "input[id*=first], input[name*=first], input[id*=given]"
+        if "/apply/section/" in page.url:
+            return True
+        if page.locator(
+            "input#first_name:visible, input[name*=firstName]:visible, input[id*=givenName]:visible"
         ).count():
             return True
         page.wait_for_timeout(2_000)
