@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import time
 from datetime import UTC, datetime
 
 from curl_cffi import requests as curl_requests
@@ -50,6 +51,31 @@ def fetch_job(api_base: str, job_id: int) -> dict:
     return payload if isinstance(payload, dict) else {}
 
 
+def handle_gate(page, profile) -> None:
+    """Fill the email-first gate and accept Oracle's legal disclaimer."""
+    with contextlib.suppress(Exception):
+        if page.locator("#primary-email-0").count():
+            page.fill("#primary-email-0", profile.email)
+    with contextlib.suppress(Exception):
+        checkbox = page.locator("#legal-disclaimer-checkbox")
+        if checkbox.count() and not checkbox.is_checked():
+            page.click("#legal-disclaimer-checkbox-label")
+            page.wait_for_timeout(800)
+            page.get_by_text("Agree", exact=True).first.click(timeout=3_000)
+
+
+def wait_for_form(page, seconds: int) -> bool:
+    """Wait while the user clears a CAPTCHA/login, then detect the form."""
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        if page.locator("input[type=file]").count() or page.locator(
+            "input[id*=first], input[name*=first], input[id*=given]"
+        ).count():
+            return True
+        page.wait_for_timeout(2_000)
+    return False
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Auto-fill an ATS application")
     parser.add_argument("--source", required=True, help="Session/source key")
@@ -58,6 +84,12 @@ def main() -> int:
     parser.add_argument("--api-base", default="http://127.0.0.1:5200")
     parser.add_argument("--headed", action="store_true")
     parser.add_argument("--wait", type=int, default=4, help="Seconds to wait after Apply")
+    parser.add_argument(
+        "--wait-for-form",
+        type=int,
+        default=0,
+        help="Seconds to wait for a human to clear CAPTCHA/login before filling",
+    )
     args = parser.parse_args()
 
     job: dict = {}
@@ -108,6 +140,13 @@ def main() -> int:
             page.wait_for_timeout(2_000)
             clicked = click_apply(page)
             page.wait_for_timeout(args.wait * 1000)
+            if args.wait_for_form:
+                handle_gate(page, profile)
+                print(
+                    f"Waiting up to {args.wait_for_form}s for the application form. "
+                    "Complete any CAPTCHA/login in the browser window."
+                )
+                wait_for_form(page, args.wait_for_form)
             results = autofill(page, profile)
             remaining = unfilled_required(page)
             page.screenshot(path=str(screenshot), full_page=True)
