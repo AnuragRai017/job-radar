@@ -72,10 +72,13 @@ def wait_for_form(page, seconds: int) -> bool:
     deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:
         if "/apply/section/" in page.url:
+            # The section URL changes before Oracle finishes rendering the form.
+            page.wait_for_timeout(6_000)
             return True
         if page.locator(
             "input#first_name:visible, input[name*=firstName]:visible, input[id*=givenName]:visible"
         ).count():
+            page.wait_for_timeout(2_000)
             return True
         page.wait_for_timeout(2_000)
     return False
