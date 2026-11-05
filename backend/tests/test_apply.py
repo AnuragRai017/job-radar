@@ -5,6 +5,7 @@ from datetime import date
 
 import pytest
 
+from app.apply.autofill import match_field
 from app.apply.greenhouse import ApplyError, parse_greenhouse_url
 from app.apply.otp import extract_code
 from app.apply.profile import ProfileError, load_profile
@@ -124,3 +125,29 @@ def test_parse_greenhouse_url() -> None:
     ) == ("medallionakafirstlayerai", "4063902009")
     with pytest.raises(ApplyError):
         parse_greenhouse_url("https://example.com/jobs/1")
+
+
+def test_match_field_maps_common_ats_labels() -> None:
+    assert match_field("First Name") == "first_name"
+    assert match_field("Last Name") == "last_name"
+    assert match_field("Email Address") == "email"
+    assert match_field("Mobile Phone") == "phone"
+    assert match_field("LinkedIn Profile") == "linkedin"
+    assert match_field("Resume/CV") == "resume"
+    assert match_field("Country") == "country"
+    assert match_field("City") == "location"
+    assert match_field("Years of experience") == "years_experience"
+    assert (
+        match_field(
+            "Are you legally authorized to work in the United States without employer sponsorship?"
+        )
+        == "us_work_authorized"
+    )
+    assert (
+        match_field("Will you now or in the future require sponsorship?") is None
+    )
+    assert (
+        match_field("Will you require sponsorship to work in the United States?")
+        == "sponsorship"
+    )
+    assert match_field("Favorite colour") is None
