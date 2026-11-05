@@ -1,4 +1,4 @@
-const DEFAULT_API_ORIGIN = "https://variables-newer-street-inquiry.trycloudflare.com";
+const DEFAULT_API_ORIGIN = "https://fishing-bikes-kid-dictionary.trycloudflare.com";
 
 export default {
   async fetch(request, env) {
