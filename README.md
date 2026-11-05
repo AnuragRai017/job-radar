@@ -205,6 +205,26 @@ Unregister-ScheduledTask -TaskName "RoleRadar Apply"
 The task uses the stable `backend/.venv` (Python 3.13 + `requirements-apply.txt`)
 so it does not depend on a temporary environment.
 
+### Authenticated autofill (Workday, Oracle, SuccessFactors, Eightfold, Amazon, IBM, BCG)
+
+These ATSs require an authenticated account. RoleRadar does **not** bypass
+login, email verification, or CAPTCHA. Save a session once per ATS, then
+auto-fill:
+
+```bash
+python login_ats.py --source jpmorgan --url <job-or-login-url> --wait 300
+python autofill_job.py --source jpmorgan --job-id 12345 --headed
+```
+
+`login_ats.py` opens Chrome; sign in during the wait (SSO/2FA included) and it
+saves cookies/localStorage to `data/sessions/<source>.json`. `autofill_job.py`
+loads that session, opens the job, clicks Apply, fills recognised fields from
+`data/applicant.json`, uploads the resume, screenshots the form, and lists any
+remaining required fields. It stops before Submit for review.
+
+Source keys: `jpmorgan`, `pwc_india`, `deloitte_india`, `microsoft`, `amazon`,
+`ibm`, `bcg`.
+
 ## Cloudflare Workers deployment
 
 Cloudflare Workers cannot run the Python/FastAPI/Postgres/scheduler stack. There
