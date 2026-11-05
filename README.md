@@ -192,6 +192,19 @@ The runner uses the locally installed Chrome through Playwright
 (`channel="chrome"`), which also satisfies Greenhouse’s invisible reCAPTCHA. It
 will not submit if a required question has no configured answer.
 
+### Daily schedule (Windows)
+
+`scripts/run-apply.ps1` runs the live queue and appends to `data/apply.log`. A
+`RoleRadar Apply` scheduled task runs it daily at 09:00, capped at 10
+submissions/day. To remove it:
+
+```powershell
+Unregister-ScheduledTask -TaskName "RoleRadar Apply"
+```
+
+The task uses the stable `backend/.venv` (Python 3.13 + `requirements-apply.txt`)
+so it does not depend on a temporary environment.
+
 ## Cloudflare Workers deployment
 
 Cloudflare Workers cannot run the Python/FastAPI/Postgres/scheduler stack. There
