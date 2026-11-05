@@ -1,0 +1,125 @@
+from __future__ import annotations
+
+import email
+import imaplib
+import re
+import time
+from datetime import UTC, datetime
+from email.message import Message
+from email.utils import parsedate_to_datetime
+
+CODE_PATTERNS = (
+    re.compile(
+        r"(?:verification|security)\s+code[^A-Za-z0-9]{0,80}([A-Za-z0-9]{8})", re.I
+    ),
+    re.compile(r"code[^A-Za-z0-9]{0,20}([A-Za-z0-9]{8})", re.I),
+    re.compile(r"\b([A-Z0-9]{8})\b"),
+)
+SENDER_MARKERS = ("greenhouse", "medallion", "job-boards")
+
+
+def _decode(value: str | None) -> str:
+    if not value:
+        return ""
+    parts = []
+    for chunk, charset in email.header.decode_header(value):
+        if isinstance(chunk, bytes):
+            parts.append(chunk.decode(charset or "utf-8", errors="replace"))
+        else:
+            parts.append(chunk)
+    return "".join(parts)
+
+
+def _body_text(message: Message) -> str:
+    if message.is_multipart():
+        for part in message.walk():
+            if part.get_content_type() == "text/plain":
+                payload = part.get_payload(decode=True)
+                if payload:
+                    return payload.decode(part.get_content_charset() or "utf-8", "replace")
+        for part in message.walk():
+            if part.get_content_type() == "text/html":
+                payload = part.get_payload(decode=True)
+                if payload:
+                    html = payload.decode(part.get_content_charset() or "utf-8", "replace")
+                    return re.sub(r"<[^>]+>", " ", html)
+        return ""
+    payload = message.get_payload(decode=True)
+    if payload:
+        return payload.decode(message.get_content_charset() or "utf-8", "replace")
+    return str(message.get_payload() or "")
+
+
+def extract_code(text: str) -> str | None:
+    for pattern in CODE_PATTERNS:
+        match = pattern.search(text or "")
+        if match:
+            code = match.group(1).upper()
+            if code.isalnum() and len(code) == 8:
+                return code
+    return None
+
+
+def _check_once(
+    *,
+    host: str,
+    user: str,
+    password: str,
+    folder: str,
+    since: datetime,
+) -> str | None:
+    with imaplib.IMAP4_SSL(host) as mail:
+        mail.login(user, password)
+        mail.select(folder)
+        day = since.strftime("%d-%b-%Y")
+        status, data = mail.search(None, f'(SINCE "{day}")')
+        if status != "OK" or not data or not data[0]:
+            return None
+        message_ids = data[0].split()[-30:]
+        for message_id in reversed(message_ids):
+            status, payload = mail.fetch(message_id, "(RFC822)")
+            if status != "OK" or not payload or not isinstance(payload[0], tuple):
+                continue
+            message = email.message_from_bytes(payload[0][1])
+            try:
+                received = parsedate_to_datetime(message.get("Date"))
+            except (TypeError, ValueError):
+                received = None
+            if received is not None:
+                if received.tzinfo is None:
+                    received = received.replace(tzinfo=UTC)
+                if received < since:
+                    continue
+            sender = _decode(message.get("From")).lower()
+            if not any(marker in sender for marker in SENDER_MARKERS):
+                continue
+            code = extract_code(_body_text(message))
+            if code:
+                return code
+    return None
+
+
+def fetch_code(
+    since: datetime,
+    *,
+    host: str,
+    user: str,
+    password: str,
+    folder: str = "INBOX",
+    timeout: float = 120.0,
+    poll: float = 5.0,
+) -> str | None:
+    """Poll an IMAP inbox until a Greenhouse verification code arrives."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            code = _check_once(
+                host=host, user=user, password=password, folder=folder, since=since
+            )
+        except (imaplib.IMAP4.error, OSError) as exc:
+            print(f"IMAP error: {exc}")
+            code = None
+        if code:
+            return code
+        time.sleep(poll)
+    return None

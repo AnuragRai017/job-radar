@@ -79,6 +79,13 @@ class Settings(BaseSettings):
     fit_run_timeout_seconds: float = 3_600.0
     fit_description_chars: int = 6_000
 
+    # Greenhouse auto-apply (host-side runner; see backend/run_apply.py)
+    apply_imap_host: str = ""
+    apply_imap_user: str = ""
+    apply_imap_password: str = ""
+    apply_imap_folder: str = "INBOX"
+    apply_otp_timeout_seconds: float = 120.0
+
     @field_validator("scrape_interval_hours")
     @classmethod
     def _positive_interval(cls, value: float) -> float:

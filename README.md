@@ -142,6 +142,56 @@ The same field is returned by `/api/jobs` and `/api/jobs/{id}` as `job_code`.
 Re-run scoring after a sweep, or set `FIT_SCORE_AFTER_SCRAPE=true` to score new
 jobs automatically after each scheduled sweep.
 
+## Greenhouse auto-apply (opt-in)
+
+RoleRadar can submit Greenhouse applications end to end for a small, explicit
+allowlist. This is deliberately narrow:
+
+- **Sources:** `medallion` and `hubspot` (the only public, account-free ATS boards).
+- **Eligibility:** active jobs with `fit_score > 50`, up to **10 submissions/day**.
+- **Truthful answers:** the profile drives work authorization, sponsorship, and
+  custom questions; unmapped required questions stop the run instead of guessing.
+- **Audit trail:** every attempt writes `data/applications.json` and a screenshot
+  under `data/applications/`.
+
+Other sources (Workday, Oracle, SuccessFactors, Eightfold, Amazon, IBM, BCG) need
+authenticated accounts, email verification, and legal attestations, so they stay
+on the assisted/manual path.
+
+### Setup
+
+1. Install the runner dependencies on the host (not in the Docker image):
+
+   ```bash
+   cd backend
+   python -m pip install -r requirements-apply.txt
+   ```
+
+2. Copy `backend/applicant.example.json` to `data/applicant.json` and fill it in.
+   Set `"confirmed": true` only after reviewing it. `linkedin` is required for
+   live submissions.
+
+3. Greenhouse emails an 8-character verification code before the final submit.
+   Either add an IMAP app password to `.env` (`APPLY_IMAP_HOST`,
+   `APPLY_IMAP_USER`, `APPLY_IMAP_PASSWORD`) so the runner fetches it
+   automatically, or run with `--interactive` and type the code.
+
+4. Dry run first (fills the form and screenshots without submitting):
+
+   ```bash
+   python run_apply.py --limit 3
+   ```
+
+5. Submit for real:
+
+   ```bash
+   python run_apply.py --live --limit 10
+   ```
+
+The runner uses the locally installed Chrome through Playwright
+(`channel="chrome"`), which also satisfies Greenhouse’s invisible reCAPTCHA. It
+will not submit if a required question has no configured answer.
+
 ## Cloudflare Workers deployment
 
 Cloudflare Workers cannot run the Python/FastAPI/Postgres/scheduler stack. There

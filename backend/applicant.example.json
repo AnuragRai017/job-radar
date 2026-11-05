@@ -1,0 +1,17 @@
+{
+  "first_name": "Anurag",
+  "last_name": "Rai",
+  "preferred_name": "",
+  "email": "raianu.work@gmail.com",
+  "phone": "+919651339863",
+  "country": "India",
+  "location": "Bengaluru, Karnataka, India",
+  "linkedin": "https://www.linkedin.com/in/your-profile",
+  "github": "https://github.com/AnuragRai017",
+  "resume_path": "data/Anurag_Rai_Resume.docx",
+  "us_work_authorized": false,
+  "python_experience": true,
+  "tech_stack": "Python, SQL, BigQuery, TypeScript, GCP, ETL, REST APIs, Next.js, React, LLM/MCP automation",
+  "why_template": "My background building data platforms, internal tools, and LLM-driven automation maps closely to the {title} role at {company}. I would like to bring that experience to a team solving operational problems at scale.",
+  "confirmed": false
+}
