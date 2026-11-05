@@ -9,11 +9,11 @@ from email.message import Message
 from email.utils import parsedate_to_datetime
 
 CODE_PATTERNS = (
-    re.compile(
-        r"(?:verification|security)\s+code[^A-Za-z0-9]{0,80}([A-Za-z0-9]{8})", re.I
-    ),
-    re.compile(r"code[^A-Za-z0-9]{0,20}([A-Za-z0-9]{8})", re.I),
-    re.compile(r"\b([A-Z0-9]{8})\b"),
+    # Medallion/Greenhouse sends an 8-digit numeric code. Match the number that
+    # follows the "security code" instructions; the surrounding text also
+    # contains 8-letter words such as "security" and "resubmit".
+    re.compile(r"(?:security|verification)\s+code[\s\S]{0,160}?\b(\d{8})\b", re.I),
+    re.compile(r"\b(\d{8})\b"),
 )
 SENDER_MARKERS = ("greenhouse", "medallion", "job-boards")
 
@@ -68,6 +68,9 @@ def _check_once(
     folder: str,
     since: datetime,
 ) -> str | None:
+    # Google displays app passwords in groups of four; IMAP expects the
+    # 16-character value without spaces.
+    password = password.replace(" ", "")
     with imaplib.IMAP4_SSL(host) as mail:
         mail.login(user, password)
         mail.select(folder)
@@ -76,6 +79,7 @@ def _check_once(
         if status != "OK" or not data or not data[0]:
             return None
         message_ids = data[0].split()[-30:]
+        best: tuple[datetime, str] | None = None
         for message_id in reversed(message_ids):
             status, payload = mail.fetch(message_id, "(RFC822)")
             if status != "OK" or not payload or not isinstance(payload[0], tuple):
@@ -94,8 +98,12 @@ def _check_once(
             if not any(marker in sender for marker in SENDER_MARKERS):
                 continue
             code = extract_code(_body_text(message))
-            if code:
-                return code
+            if not code:
+                continue
+            stamp = received or datetime.min.replace(tzinfo=UTC)
+            if best is None or stamp > best[0]:
+                best = (stamp, code)
+        return best[1] if best else None
     return None
 
 

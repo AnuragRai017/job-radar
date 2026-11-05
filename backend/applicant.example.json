@@ -11,7 +11,12 @@
   "resume_path": "data/Anurag_Rai_Resume.docx",
   "us_work_authorized": false,
   "python_experience": true,
+  "startup_experience": true,
+  "years_experience": 5,
+  "production_ownership": true,
+  "django_experience": false,
   "tech_stack": "Python, SQL, BigQuery, TypeScript, GCP, ETL, REST APIs, Next.js, React, LLM/MCP automation",
   "why_template": "My background building data platforms, internal tools, and LLM-driven automation maps closely to the {title} role at {company}. I would like to bring that experience to a team solving operational problems at scale.",
+  "experience_template": "I have 5 years building data platforms and automation: ETL pipelines in Python and BigQuery, internal Next.js tools, and LLM-driven triage at CertifyOS. That background maps directly to the {title} role at {company}.",
   "confirmed": false
 }

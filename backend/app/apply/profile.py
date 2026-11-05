@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -27,8 +28,13 @@ class ApplicantProfile:
     resume_path: str
     us_work_authorized: bool = False
     python_experience: bool = True
+    startup_experience: bool = True
+    years_experience: int = 5
+    production_ownership: bool = True
+    django_experience: bool = False
     tech_stack: str = ""
     why_template: str = ""
+    experience_template: str = ""
     preferred_name: str = ""
     github: str = ""
     confirmed: bool = False
@@ -64,10 +70,27 @@ class ApplicantProfile:
             return self.github
         if "why" in text and ("work" in text or "join" in text or "company" in text):
             return self.why_answer(company=company, title=title)
+        if "tell us about your experience" in text or (
+            "experience" in text and "relates" in text
+        ):
+            return self.experience_answer(company=company, title=title)
         if "tech stack" in text or "technologies" in text or "technology" in text:
             return self.tech_stack
         if "python" in text and ("experience" in text or "using" in text):
             return "Yes" if self.python_experience else "No"
+        if "startup" in text:
+            return "Yes" if self.startup_experience else "No"
+        if "years" in text and "experience" in text:
+            match = re.search(r"(\d+)\s*\+?\s*years?", text)
+            if match:
+                required = int(match.group(1))
+                return "Yes" if self.years_experience >= required else "No"
+        if "django" in text:
+            return "Yes" if self.django_experience else "No"
+        if "shipped production code" in text or (
+            "owning projects" in text and "production" in text
+        ):
+            return "Yes" if self.production_ownership else "No"
         if "authorized to work in the united states" in text:
             return "Yes" if self.us_work_authorized else "No"
         if "sponsorship" in text:
@@ -86,6 +109,19 @@ class ApplicantProfile:
             f"My background building data platforms, internal tools, and LLM-driven "
             f"automation maps closely to the {title} role at {company}. I would like "
             f"to bring that experience to a team solving operational problems at scale."
+        )
+
+    def experience_answer(self, *, company: str, title: str) -> str:
+        if self.experience_template:
+            try:
+                return self.experience_template.format(company=company, title=title)
+            except (KeyError, IndexError):
+                return self.experience_template
+        return (
+            "I have 5 years building data platforms and automation: ETL pipelines "
+            "in Python and BigQuery, internal Next.js tools, and LLM-driven triage "
+            f"at CertifyOS. That background maps directly to the {title} role at "
+            f"{company}."
         )
 
 
@@ -114,8 +150,13 @@ def load_profile(path: str | Path | None = None) -> ApplicantProfile:
         "resume_path",
         "us_work_authorized",
         "python_experience",
+        "startup_experience",
+        "years_experience",
+        "production_ownership",
+        "django_experience",
         "tech_stack",
         "why_template",
+        "experience_template",
         "preferred_name",
         "github",
         "confirmed",
@@ -131,8 +172,13 @@ def load_profile(path: str | Path | None = None) -> ApplicantProfile:
         resume_path=str(payload.get("resume_path") or "data/Anurag_Rai_Resume.docx"),
         us_work_authorized=bool(payload.get("us_work_authorized", False)),
         python_experience=bool(payload.get("python_experience", True)),
+        startup_experience=bool(payload.get("startup_experience", True)),
+        years_experience=int(payload.get("years_experience") or 5),
+        production_ownership=bool(payload.get("production_ownership", True)),
+        django_experience=bool(payload.get("django_experience", False)),
         tech_stack=str(payload.get("tech_stack") or "").strip(),
         why_template=str(payload.get("why_template") or "").strip(),
+        experience_template=str(payload.get("experience_template") or "").strip(),
         preferred_name=str(payload.get("preferred_name") or "").strip(),
         github=str(payload.get("github") or "").strip(),
         confirmed=bool(payload.get("confirmed", False)),

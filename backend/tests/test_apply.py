@@ -55,6 +55,16 @@ def test_profile_answers_common_questions(tmp_path) -> None:
         "Do you have experience with Python?", company="Medallion", title="SWE"
     ) == "Yes"
     assert profile.answer(
+        "Do you have over 3 years of experience as a software engineer?",
+        company="Medallion",
+        title="SWE",
+    ) == "Yes"
+    assert profile.answer(
+        "Do you have over 8 years of experience as a software engineer?",
+        company="Medallion",
+        title="SWE",
+    ) == "No"
+    assert profile.answer(
         "Are you legally authorized to work in the United States without employer sponsorship now or in the future?",
         company="Medallion",
         title="SWE",
@@ -99,8 +109,12 @@ def test_submitted_today_counts_only_submissions() -> None:
 
 
 def test_extract_code_from_verification_text() -> None:
-    assert extract_code("Your verification code is AB12CD34. It expires soon.") == "AB12CD34"
-    assert extract_code("Security code: 1234ABCD") == "1234ABCD"
+    body = (
+        "Copy and paste this code into the security code field on your "
+        "application: 50833972 After you enter the code, resubmit your application."
+    )
+    assert extract_code(body) == "50833972"
+    assert extract_code("Your verification code is 12345678. It expires soon.") == "12345678"
     assert extract_code("No code here") is None
 
 
