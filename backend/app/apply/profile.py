@@ -66,6 +66,9 @@ class ApplicantProfile:
             return None
         if any(marker in text for marker in LINKEDIN_MARKERS):
             return self.linkedin
+        extra = self.extra or {}
+        if "ai-assisted" in text or ("ai" in text and "tools" in text):
+            return str(extra.get("ai_tools_answer") or "")
         if "github" in text:
             return self.github
         if "why" in text and ("work" in text or "join" in text or "company" in text):
@@ -80,11 +83,15 @@ class ApplicantProfile:
             return "Yes" if self.python_experience else "No"
         if "startup" in text:
             return "Yes" if self.startup_experience else "No"
+        if "website" in text:
+            return self.github
         if "years" in text and "experience" in text:
             match = re.search(r"(\d+)\s*\+?\s*years?", text)
             if match:
                 required = int(match.group(1))
                 return "Yes" if self.years_experience >= required else "No"
+            if "total" in text or "api monitoring" in text:
+                return str(self.years_experience)
         if "django" in text:
             return "Yes" if self.django_experience else "No"
         if "shipped production code" in text or (
@@ -95,6 +102,33 @@ class ApplicantProfile:
             return "Yes" if self.us_work_authorized else "No"
         if "sponsorship" in text:
             return "No" if self.us_work_authorized else "Yes"
+        if "ctc" in text:
+            if "expected" in text:
+                return str(extra.get("expected_ctc") or "")
+            return str(extra.get("current_ctc") or "")
+        if "notice" in text:
+            return str(extra.get("notice_period") or "")
+        if "are you based in" in text:
+            place = text.rsplit("based in", 1)[1].strip(" ?.")
+            city = place.split()[0] if place.split() else ""
+            if city and city in self.location.lower():
+                return "Yes"
+            return (
+                f"No — I am based in {self.location}, and I am ready to "
+                "relocate for this role."
+            )
+        if "flexible to work from office" in text or "ready to relocate" in text:
+            return "Yes" if extra.get("relocation_willing") else "No"
+        if "independently investigated" in text:
+            return "Yes"
+        if "escalations" in text or "mentored" in text:
+            return "Yes"
+        if "ai-assisted" in text or ("ai" in text and "tools" in text):
+            return str(extra.get("ai_tools_answer") or "")
+        if "scripting or query languages" in text:
+            return "SQL, Python, Bash"
+        if "monitoring and observability tools" in text:
+            return "Other"
         if "current location" in text or text == "location":
             return self.location
         return None

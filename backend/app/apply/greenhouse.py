@@ -119,6 +119,17 @@ class GreenhouseApplicator:
                     timeout=20_000
                 )
                 page.wait_for_timeout(2_500)
+                # Embedded boards sometimes submit before the reCAPTCHA token
+                # is ready; re-clicking after a short wait re-runs the check.
+                for _attempt in range(2):
+                    if "recaptcha" not in page.inner_text("body").lower():
+                        break
+                    page.wait_for_timeout(3_000)
+                    with contextlib.suppress(Exception):
+                        page.get_by_role(
+                            "button", name="Submit application"
+                        ).first.click(timeout=5_000)
+                    page.wait_for_timeout(2_500)
 
                 if page.locator("#security-input-0").count():
                     code = otp_provider(submitted_at) if otp_provider else None
@@ -174,20 +185,51 @@ class GreenhouseApplicator:
         with contextlib.suppress(Exception):
             # Some boards render the form directly; the Apply click is optional.
             page.get_by_role("button", name="Apply", exact=True).first.click(timeout=5_000)
-        page.wait_for_selector("#first_name", timeout=self.timeout_ms)
+        try:
+            page.wait_for_selector("#first_name", timeout=15_000)
+        except Exception:
+            # Suki-style boards serve their own page and embed the Greenhouse
+            # form inside an iframe. Navigate straight to the embed URL.
+            src = page.evaluate(
+                """() => {
+                     const frame = Array.from(document.querySelectorAll("iframe"))
+                       .find(f => /greenhouse\\.io\\/embed\\/job_app/.test(f.src));
+                     return frame ? frame.src : null;
+                   }"""
+            )
+            if not src:
+                raise
+            page.goto(src, wait_until="domcontentloaded", timeout=self.timeout_ms)
+            page.wait_for_selector("#first_name", timeout=self.timeout_ms)
         page.wait_for_timeout(1_200)
 
     def _fill_core(self, page, profile: ApplicantProfile) -> None:
-        page.fill("#first_name", profile.first_name)
-        page.fill("#last_name", profile.last_name)
-        if profile.preferred_name:
+        if page.locator("#first_name").count():
+            page.fill("#first_name", profile.first_name)
+        if page.locator("#last_name").count():
+            page.fill("#last_name", profile.last_name)
+        if profile.preferred_name and page.locator("#preferred_name").count():
             page.fill("#preferred_name", profile.preferred_name)
-        page.fill("#email", profile.email)
+        if page.locator("#email").count():
+            page.fill("#email", profile.email)
 
-        self._choose(page, "#country", profile.country)
-        page.fill("#phone", profile.phone)
-        self._choose(page, "#candidate-location", profile.location)
-        page.set_input_files("#resume", str(resolve_data_path(profile.resume_path)))
+        if page.locator("#country").count():
+            self._choose(page, "#country", profile.country)
+        if page.locator("#phone").count():
+            page.fill("#phone", profile.phone)
+        if page.locator("#candidate-location").count():
+            self._choose(page, "#candidate-location", profile.location)
+        if page.locator("#resume").count():
+            resume_path = resolve_data_path(profile.resume_path)
+            for _attempt in range(2):
+                page.set_input_files("#resume", str(resume_path))
+                try:
+                    page.wait_for_selector(
+                        f"text={resume_path.name}", timeout=10_000
+                    )
+                    break
+                except Exception:  # noqa: BLE001 - Greenhouse's uploader is flaky
+                    continue
 
     def _fill_question(
         self,
@@ -230,8 +272,29 @@ class GreenhouseApplicator:
 
             if field_type == "multi_value_single_select":
                 self._choose(page, f"#{name}", answer)
+            elif field_type == "multi_value_multi_select":
+                self._check_group(page, name, str(answer))
             else:
                 page.fill(f"#{name}", answer)
+
+    @staticmethod
+    def _check_group(page, name: str, answer: str) -> None:
+        """Check the labelled checkboxes of a multi-select question."""
+        base = name.rstrip("[]")
+        for value in (item.strip() for item in answer.split(",")):
+            if not value:
+                continue
+            try:
+                page.get_by_label(value, exact=True).check(timeout=3_000)
+                continue
+            except Exception:  # noqa: BLE001 - label matching varies by board
+                with contextlib.suppress(Exception):
+                    page.get_by_text(value, exact=True).first.click(timeout=2_500)
+        # An "Other" checkbox often reveals a small text input for details.
+        with contextlib.suppress(Exception):
+            other = page.locator(f"input[type=text][name*='{base}']").first
+            if other.count() and other.is_visible():
+                other.fill("Custom log-based service health checks and alerting (GCP)")
 
     @staticmethod
     def _retype(page, selector: str, value: str) -> None:
